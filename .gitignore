@@ -1,0 +1,6 @@
+cudnn-v5.1
+dataset
+offload_shaping_experiments
+processed_dataset
+py-faster-rcnn
+*.jpg
