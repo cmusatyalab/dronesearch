@@ -72,7 +72,7 @@ def gen_car_only_experiments(scene_frame_sequence_dir,
     for video_name in train_list:
         video_frame_sequence_dir = os.path.join(
             scene_frame_sequence_dir, video_name)
-        video_annotations = io_util.parse_annotation_file(
+        video_annotations = io_util.parse_vatic_annotation_file(
             os.path.join(scene_annotation_dir, video_name, 'annotations.txt'))
         video_image_list, video_label_list = gen_tpod_data_inputs(
             video_frame_sequence_dir, video_annotations)

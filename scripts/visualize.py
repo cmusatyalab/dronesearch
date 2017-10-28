@@ -2,7 +2,6 @@
 
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
-from builtins import *
 
 import cv2
 import fire
@@ -20,7 +19,7 @@ def draw_annotations_on_image(input_image_path,
     with xmin, ymin, xmax, ymax, lost columns"""
     bgr_im = cv2.imread(input_image_path)
     for _, annotation in annotations.iterrows():
-        if annotation['lost']:
+        if 'lost' in annotation and annotation['lost']:
             continue
         xmin = annotation['xmin']
         ymin = annotation['ymin']
@@ -34,11 +33,24 @@ def draw_annotations_on_image(input_image_path,
     return bgr_im
 
 
+def visualize_annotations_in_image(input_image_path, annotation_file_path, annotation_format, output_image_path):
+    supported_parse_function = {
+        "vatic": io_util.parse_vatic_annotation_file,
+        "munich": io_util.parse_munich_annotation_file
+    }
+    if annotation_format not in supported_parse_function.keys():
+        raise ValueError(
+            "Annotation format Not Supported. Currently supports {}, not {}".format(supported_parse_function.keys(),
+                                                                                    annotation_format))
+    image_annotations = supported_parse_function[annotation_format](annotation_file_path)
+    draw_annotations_on_image(input_image_path, image_annotations, output_image_path)
+
+
 def visualize_annotations_in_frame_sequence(frame_sequence_dir,
                                             annotation_file_path,
                                             output_dir):
     frame_file_list = sorted(glob.glob(os.path.join(frame_sequence_dir, '*')))
-    annotations = io_util.parse_annotation_file(annotation_file_path)
+    annotations = io_util.parse_vatic_annotation_file(annotation_file_path)
     os.makedirs(output_dir)
     for frame_file in frame_file_list:
         frame_base_file = os.path.basename(frame_file)
@@ -82,7 +94,7 @@ def rename_frame_sequence_for_avconv(frame_sequence_dir,
 
     print(('Issue "avconv -r 30 -i {}/{}{} output_video.mov" '
            'to create a video.').format(
-            output_dir, '%' + str(max_digit_num) + 'd', image_ext))
+        output_dir, '%' + str(max_digit_num) + 'd', image_ext))
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -90,13 +102,9 @@ def rename_frame_sequence_for_avconv(frame_sequence_dir,
     output_file_name_pat = '{:0' + str(max_digit_num) + 'd}' + image_ext
     for index, frame_file in enumerate(frame_file_list):
         dst_file = os.path.join(
-            output_dir, output_file_name_pat.format(index+1))
+            output_dir, output_file_name_pat.format(index + 1))
         os.symlink(frame_file, dst_file)
 
 
 if __name__ == "__main__":
-    fire.Fire(
-        {'visualize_annotations_in_frame_sequence':
-         visualize_annotations_in_frame_sequence,
-         'rename_frame_sequence_for_avconv':
-         rename_frame_sequence_for_avconv})
+    fire.Fire()
