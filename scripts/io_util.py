@@ -70,6 +70,17 @@ def rectify_box(xcenter, ycenter, width, height, angle):
     return xmin, ymin, xmin + w - 1, ymin + h - 1
 
 
+def load_munich_annotation(annotation_dir):
+    """Load all munich annotations in annotation_dir into a single data frame."""
+    file_paths = glob.glob(os.path.join(os.path.abspath(annotation_dir), "*"))
+    annotation_by_file = []
+    for file_path in file_paths:
+        file_annotation = parse_munich_annotation_file(file_path)
+        annotation_by_file.append(file_annotation)
+    all_annotation = pd.concat(annotation_by_file, ignore_index=True)
+    return all_annotation
+
+
 def parse_munich_annotation_file(file_path):
     """
     text format: id type center.x center.y size.width size.height angle
@@ -87,7 +98,9 @@ def parse_munich_annotation_file(file_path):
     annotations['ymin'] = 0
     annotations['xmax'] = 0
     annotations['ymax'] = 0
-    # calculate bounding rect
+    # the original ground truth is given with boxes that are not parallel to image.
+    # need to transform them into bounding rects to follow object detection ground truth convention
+    # note these annotation may go beyond image resolution due to rectification
     for index, row in annotations.iterrows():
         xmin, ymin, xmax, ymax = rectify_box(row['xcenter'], row['ycenter'], row['width'], row['height'], row['angle'])
         annotations.loc[index, "xmin"] = xmin

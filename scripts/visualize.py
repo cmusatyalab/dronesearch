@@ -34,6 +34,7 @@ def draw_annotations_on_image(input_image_path,
 
 
 def visualize_annotations_in_image(input_image_path, annotation_file_path, annotation_format, output_image_path):
+    """Visualize annotation in an image."""
     supported_parse_function = {
         "vatic": io_util.parse_vatic_annotation_file,
         "munich": io_util.parse_munich_annotation_file
