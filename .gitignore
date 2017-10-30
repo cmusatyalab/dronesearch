@@ -4,3 +4,5 @@ offload_shaping_experiments
 processed_dataset
 py-faster-rcnn
 *.jpg
+environment
+pretrained_models
