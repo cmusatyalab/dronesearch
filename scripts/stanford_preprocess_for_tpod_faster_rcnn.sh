@@ -14,4 +14,4 @@ TRAIN_LIST='["video4","video7"]'
 OUTPUT_DIR="${BASE_DIR}/experiments/car_only_1/validation"
 # test list is "video4","video7"
 
-python gen_experiments.py gen_car_only_experiments $SCENE_FRAME_SEQUENCE_DIR $SCENE_ANNOTATION_DIR $TRAIN_LIST $OUTPUT_DIR
+python preprocess_for_tpod_faster_rcnn.py gen_car_only_experiments $SCENE_FRAME_SEQUENCE_DIR $SCENE_ANNOTATION_DIR $TRAIN_LIST $OUTPUT_DIR

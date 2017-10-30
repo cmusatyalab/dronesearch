@@ -16,6 +16,10 @@ import io_util
 import pandas as pd
 
 
+############################################################
+# Preprocess for munich
+#
+############################################################
 def slice_image(im, w, h):
     """Slice image into tiles of width w and height h.
 
@@ -153,11 +157,70 @@ def group_sliced_images_by_label(image_dir, annotation_dir, output_dir):
                     image_output_dir, os.path.basename(image_file_path)))
 
 
+############################################################
+# Preprocess for ImageNet VID
+#
+############################################################
+def select_images(video_list_file_path, vid_base_dir, output_dir,
+                  max_num=2**20):
+    """Prepare train and test image dir structure.
+
+    Create symlinks in output_dir pointing to image paths specified by
+    video_list_file_path.
+
+    Args:
+       video_list_file_path: text file with relative image path at each line
+       vid_base_dir: image base dir. combined with each line in
+         video_list_file_path to get absolute path.
+       max_num: max number of selection
+    """
+    with open(video_list_file_path, 'r') as f:
+        contents = f.read().splitlines()
+    frame_sequence_relative_paths = [line.split(' ')[0] for line in contents]
+    random.shuffle(frame_sequence_relative_paths)
+
+    selected_num = 0
+    for frame_sequence_relative_path in frame_sequence_relative_paths:
+        frame_sequence_dir_path = os.path.join(
+            vid_base_dir, frame_sequence_relative_path)
+        file_paths = glob.glob(os.path.join(frame_sequence_dir_path, '*'))
+        skipped = False
+        for file_path in file_paths:
+            # give each symlink a unique name
+            symlink_name = os.path.relpath(
+                file_path, vid_base_dir).replace('/', '_')
+            try:
+                os.symlink(file_path, os.path.join(output_dir, symlink_name))
+            except OSError as e:
+                # A video may contain multiple objects
+                # therefore appears multiple
+                # times in the video_list_file_path provided
+                if e.errno == 17:
+                    print('skip video {} since'
+                          'it has been included'.format(file_path))
+                    skipped = True
+                    break
+                else:
+                    raise e
+
+        if not skipped:
+            print('added {} files'.format(selected_num))
+            selected_num += len(file_paths)
+        if selected_num > max_num:
+            break
+
+
+############################################################
+# Preprocess for stanford
+#
+############################################################
 def flatten_stanford_dir(input_dir, output_dir):
+    """Move all videos in the stanford dataset to the same dir."""
     io_util.flatten_directory_with_symlink(input_dir, output_dir)
 
 
 def get_positive_annotation_mask(annotations, videoids):
+    """Car/NoCar annotation pandas dataframe mask."""
     lost_mask = (annotations['lost'] == 0)
     label_mask = annotations['label'].isin(['Car', 'Bus'])
     mask = label_mask & lost_mask

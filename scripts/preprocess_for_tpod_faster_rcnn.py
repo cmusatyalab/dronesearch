@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+"""Preprocess scripts for Faster-RCNN based object detections experiments.
+
+This preprocessing script customizes input data format according to the
+convention used by TPOD's py-faster-rcnn CNN
+module. (https://github.com/junjuew/py-faster-rcnn)
+
+"""
 
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
