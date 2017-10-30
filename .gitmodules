@@ -1,0 +1,3 @@
+[submodule "scripts/mobilenet"]
+	path = scripts/mobilenet
+	url = git@github.com:junjuew/models.git

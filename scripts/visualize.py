@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
+from __future__ import (absolute_import, division, print_function,
+    unicode_literals)
 
+import cPickle
 import cv2
 import fire
 import glob
 import os
 
 import io_util
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 def draw_annotations_on_image(input_image_path,
@@ -105,6 +110,28 @@ def rename_frame_sequence_for_avconv(frame_sequence_dir,
         dst_file = os.path.join(
             output_dir, output_file_name_pat.format(index + 1))
         os.symlink(frame_file, dst_file)
+
+
+def vis_prc(precision_recall_file_path, output_file_path):
+    """Plot precision and recall curve."""
+    with open(precision_recall_file_path, 'r') as f:
+        data = cPickle.load(f)
+        recall = data['rec']
+        precision = data['prec']
+        average_precision = data['ap']
+        plt.step(recall, precision, color='b', alpha=0.2,
+                 where='post')
+        plt.fill_between(recall, precision, step='post', alpha=0.2,
+                         color='b')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.ylim([0.0, 1.05])
+        plt.xlim([0.0, 1.0])
+        plt.title('Precision-Recall curve: Average Precision={0:0.2f}'.format(
+            average_precision))
+        plt.tight_layout()
+        plt.savefig(output_file_path)
+        plt.close()
 
 
 if __name__ == "__main__":
