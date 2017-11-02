@@ -12,30 +12,42 @@ import os
 import random
 import shutil
 
+import annotation
 import io_util
-import pandas as pd
 
 
 ############################################################
 # Preprocess for munich
 #
 ############################################################
-def slice_image(im, w, h):
+def slice_image(im, w, h, slice_is_ratio):
     """Slice image into tiles of width w and height h.
 
     The returned slice order is horizontal-first.
+
+    w: resolution of slice width when slice_is_ratio is False
+    h: resolution of slice height when slice_is_ratio is False
+    slice_is_ratio: when True, w and h must be >0 and <=1.
+      They are the ratio of slice w or h divided by the orginal w or h.
     """
     im_h, im_w, _ = im.shape
+
+    if slice_is_ratio:
+        # translate ratio into width and height resolution first
+        assert (w > 0) and (w <= 1)
+        assert (h > 0) and (h <= 1)
+        w = int(math.ceil(im_w * w))
+        h = int(math.ceil(im_h * h))
+
     horizontal_num = int(math.ceil(im_w / float(w)))
     vertical_num = int(math.ceil(im_h / float(h)))
 
     # horizontal idx first, top left is (0,0)
     slices = []
-    print('total {}x{} slices'.format(horizontal_num, vertical_num))
     for h_idx in range(0, horizontal_num):
         vertical_slice = []
         for v_idx in range(0, vertical_num):
-            print('slicing ({}, {})'.format(h_idx, v_idx))
+            # print('slicing ({}, {})'.format(h_idx, v_idx))
             slice_x = h_idx * w
             slice_y = v_idx * h
             slice_w = min(w, im_w - slice_x)
@@ -47,8 +59,15 @@ def slice_image(im, w, h):
     return slices
 
 
-def slice_images(input_dir, output_dir, slice_w=225, slice_h=225):
-    """"Used by Munich dataset to slice images into smaller tiles."""
+def slice_images(input_dir, output_dir, slice_w=225, slice_h=225,
+                 slice_is_ratio=False):
+    """"Used by Munich dataset to slice images into smaller tiles.
+
+    slice_w: resolution of slice width when slice_is_ratio is False
+    slice_h: resolution of slice height when slice_is_ratio is False
+    slice_is_ratio: when True, slice_w and slice_h must be >0 and <=1.
+      They are treated as the percentage of the original resolution.
+    """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -57,7 +76,10 @@ def slice_images(input_dir, output_dir, slice_w=225, slice_h=225):
         print("slicing file {}".format(file_path))
         output_prefix, ext = os.path.splitext(os.path.basename(file_path))
         im = cv2.imread(file_path)
-        slices = slice_image(im, slice_w, slice_h)
+        slices = slice_image(im, slice_w, slice_h,
+                             slice_is_ratio=slice_is_ratio)
+        print('total {}x{} slices'.format(len(slices),
+                                          len(slices[0])))
         for h_idx in range(len(slices)):
             h_idx_format_string = io_util.get_prefix0_format_string(
                 len(slices))
@@ -94,13 +116,106 @@ def get_slice_shape(file_path_pattern):
     return im.shape[0], im.shape[1]
 
 
-def group_sliced_images_by_label(image_dir, annotation_dir, output_dir):
-    """Group munich images into postivie and negative.
+def get_slice_contain_roi_bitmap(image_dir, sliced_images_path_pattern,
+                                 image_annotations):
+    """Given the base image annotations, return a roi bitmap for sliced images.
 
-    If the cropped image has a car, then it's positive, otherwise negative.
+    The bitmap indicates which sliced images has objects of interests
+
+    Args:
+        imageid: id for the base image
+        annotations: base image annotations
+        grid_w: how many slices are there horizontally
+        grid_h: how many slices are there vertically
+        slice_w: width of the sliced images
+        slice_h: height of the slice images
     """
-    annotations = io_util.load_munich_annotation(annotation_dir)
-    imageids = set(annotations['imageid'].tolist())
+    grid_h, grid_w = get_grid_shape(sliced_images_path_pattern)
+    print("grid size: ({}, {})".format(grid_w, grid_h))
+    slice_h, slice_w = get_slice_shape(sliced_images_path_pattern)
+
+    slice_contain_roi_bitmap = [
+        [False for _ in range(grid_h)] for _ in range(grid_w)]
+
+    for _, image_annotation in image_annotations.iterrows():
+        # which cell does this annotation fall into
+        xmin, ymin, xmax, ymax = image_annotation["xmin"], \
+            image_annotation["ymin"], \
+            image_annotation["xmax"], \
+            image_annotation["ymax"]
+        # upper left, upper right, lower left, lower right
+        key_points = [(xmin, ymin), (xmax, ymin),
+                      (xmin, ymax), (xmax, ymax)]
+        for (x, y) in key_points:
+            # due to rectifying bounding boxes to be rectangles,
+            # annotations have points that are beyond boundry of image
+            # resolutions
+            grid_x, grid_y = int(x / slice_w), int(y / slice_h)
+            grid_x = min(grid_w - 1, max(grid_x, 0))
+            grid_y = min(grid_h - 1, max(grid_y, 0))
+            print("marking grid cell ({}, {}) as positive".format(grid_x,
+                                                                  grid_y))
+            slice_contain_roi_bitmap[grid_x][grid_y] = True
+    return slice_contain_roi_bitmap
+
+
+def symlink_or_copy_slices_by_bitmap(sliced_images_path_pattern,
+                                     slice_contain_roi_bitmap,
+                                     category_dir_dict,
+                                     copy=False):
+    """Copy slices cropped from a base images into dirs of different categories.
+
+    Args:
+        sliced_images_path_pattern: string pattern prefix for locating
+           all slices from the base image
+        slice_contain_roi_bitmap: roi bitmap indicating which slices
+           contain what categories
+        category_dir_dict: output dir path for different categories
+        copy: if True, then copy, otherwise symlink
+    """
+    grid_h, grid_w = get_grid_shape(sliced_images_path_pattern)
+    for h_idx in range(len(slice_contain_roi_bitmap)):
+        for v_idx in range(len(slice_contain_roi_bitmap[h_idx])):
+            h_idx_format_string = io_util.get_prefix0_format_string(grid_w)
+            v_idx_format_string = io_util.get_prefix0_format_string(grid_h)
+            idx_format_string = h_idx_format_string + \
+                "_" + v_idx_format_string
+            idx_string = idx_format_string.format(h_idx, v_idx)
+            sliced_tile_path_pattern = sliced_images_path_pattern + '*{}*'
+            image_file_paths = glob.glob(
+                sliced_tile_path_pattern.format(idx_string))
+            if len(image_file_paths) != 1:
+                import pdb
+                pdb.set_trace()
+
+            assert len(image_file_paths) == 1
+
+            image_file_path = image_file_paths[0]
+            image_output_dir = category_dir_dict[
+                slice_contain_roi_bitmap[h_idx][v_idx]]
+            if copy:
+                symlink_or_copy_func = shutil.copyfile
+            else:
+                symlink_or_copy_func = os.symlink
+            symlink_or_copy_func(image_file_path, os.path.join(
+                    image_output_dir, os.path.basename(image_file_path)))
+
+
+def group_sliced_images_by_label(dataset, image_dir, annotation_dir,
+                                 output_dir):
+    """Group images into postivie and negative.
+
+    For current usage, if the cropped image has a car, then it's positive,
+    otherwise negative.
+
+    image_dir: image_dir with all sliced images
+
+    """
+    slice_annotations = (
+        annotation.SliceAnnotationsFactory.get_annotations_for_slices(
+            dataset, image_dir, annotation_dir))
+    imageids = slice_annotations.imageids
+    annotations = slice_annotations.annotations
 
     group_dir_paths = {True: os.path.join(output_dir, "positive"),
                        False: os.path.join(output_dir, "negative")}
@@ -109,52 +224,15 @@ def group_sliced_images_by_label(image_dir, annotation_dir, output_dir):
             os.makedirs(group_dir_path)
 
     for imageid in imageids:
-        print("processing slices from base image id: {}".format(imageid))
-        file_path_pattern = os.path.join(image_dir, "*{}*".format(imageid))
-        grid_h, grid_w = get_grid_shape(file_path_pattern)
-        print("grid size: ({}, {})".format(grid_w, grid_h))
-        slice_h, slice_w = get_slice_shape(file_path_pattern)
-        slice_contain_roi_bitmap = [
-            [False for _ in range(grid_h)] for _ in range(grid_w)]
-
         image_annotations = annotations[annotations['imageid'] == imageid]
-        for _, image_annotation in image_annotations.iterrows():
-            # which cell does this annotation fall into
-            xmin, ymin, xmax, ymax = image_annotation["xmin"], \
-                image_annotation["ymin"], \
-                image_annotation["xmax"], \
-                image_annotation["ymax"]
-            # upper left, upper right, lower left, lower right
-            key_points = [(xmin, ymin), (xmax, ymin),
-                          (xmin, ymax), (xmax, ymax)]
-            for (x, y) in key_points:
-                # due to rectifying bounding boxes to be rectangles,
-                # annotations have points that are beyond boundry of image
-                # resolutions
-                grid_x, grid_y = int(x / slice_w), int(y / slice_h)
-                grid_x = min(grid_w - 1, max(grid_x, 0))
-                grid_y = min(grid_h - 1, max(grid_y, 0))
-                print("marking grid cell ({}, {}) as positive".format(grid_x,
-                                                                      grid_y))
-                slice_contain_roi_bitmap[grid_x][grid_y] = True
-
-        # move slices based on bitmap
-        for h_idx in range(len(slice_contain_roi_bitmap)):
-            for v_idx in range(len(slice_contain_roi_bitmap[h_idx])):
-                h_idx_format_string = io_util.get_prefix0_format_string(grid_w)
-                v_idx_format_string = io_util.get_prefix0_format_string(grid_h)
-                idx_format_string = h_idx_format_string + \
-                    "_" + v_idx_format_string
-                idx_string = idx_format_string.format(h_idx, v_idx)
-                image_file_paths = glob.glob(os.path.join(
-                    image_dir, "*{}*{}*").format(imageid, idx_string))
-                assert len(image_file_paths) == 1
-
-                image_file_path = image_file_paths[0]
-                image_output_dir = group_dir_paths[
-                    slice_contain_roi_bitmap[h_idx][v_idx]]
-                shutil.copyfile(image_file_path, os.path.join(
-                    image_output_dir, os.path.basename(image_file_path)))
+        sliced_images_path_pattern = (
+            slice_annotations.get_sliced_images_path_pattern(imageid))
+        print("processing slices from base image id: {}".format(imageid))
+        slice_contain_roi_bitmap = get_slice_contain_roi_bitmap(
+            image_dir, sliced_images_path_pattern, image_annotations)
+        symlink_or_copy_slices_by_bitmap(sliced_images_path_pattern,
+                                         slice_contain_roi_bitmap,
+                                         group_dir_paths)
 
 
 ############################################################
@@ -219,14 +297,6 @@ def flatten_stanford_dir(input_dir, output_dir):
     io_util.flatten_directory_with_symlink(input_dir, output_dir)
 
 
-def get_positive_annotation_mask(annotations, videoids):
-    """Car/NoCar annotation pandas dataframe mask."""
-    lost_mask = (annotations['lost'] == 0)
-    label_mask = annotations['label'].isin(['Car', 'Bus'])
-    mask = label_mask & lost_mask
-    return mask
-
-
 def group_stanford_images(image_dir,
                           annotation_dir,
                           output_dir,
@@ -260,7 +330,7 @@ def group_stanford_images(image_dir,
         print('gathering images for category {}'.format(category))
         category_output_dir = os.path.join(output_dir, category)
         io_util.create_dir_if_not_exist(category_output_dir)
-        mask = get_positive_annotation_mask(annotations, videoids)
+        mask = annotation.get_positive_annotation_mask(annotations)
         target_annotations = annotations[mask].copy()
         # groupby videoid and frameid to remove duplicates
         unique_target_annotations = target_annotations.groupby(
