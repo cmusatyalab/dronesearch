@@ -133,7 +133,7 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
     def get_sliced_images_path_pattern(self, imageid):
         components = imageid.split('_')
         video_id = '_'.join([components[0], components[1]])
-        frame_id = components[2]
+        frame_id = int(components[2])
         return os.path.join(self._slice_image_dir,
-                            '*{}_video.mov_*0{}_*'.format(video_id,
-                                                          frame_id))
+                            '*{}_video.mov_{:010d}_*'.format(video_id,
+                                                             frame_id))

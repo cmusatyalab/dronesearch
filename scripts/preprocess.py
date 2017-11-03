@@ -93,11 +93,9 @@ def slice_images(input_dir, output_dir, slice_w=225, slice_h=225,
                 cv2.imwrite(output_path, slices[h_idx][v_idx])
 
 
-def get_grid_shape(file_path_pattern):
+def get_grid_shape(slice_file_paths):
     """Return how many small pictures are cropped from the base image horizontally
     and vertically."""
-    slice_file_paths = glob.glob(file_path_pattern)
-    assert slice_file_paths
     slice_file_basenames = [os.path.splitext(os.path.basename(file_path))[
         0] for file_path in slice_file_paths]
     vertical_indices = [int(basename.split("_")[-1])
@@ -107,16 +105,14 @@ def get_grid_shape(file_path_pattern):
     return max(vertical_indices) + 1, max(horizontal_indices) + 1
 
 
-def get_slice_shape(file_path_pattern):
+def get_slice_shape(slice_file_paths):
     """Return the resolution of each slice (small picture)."""
-    slice_file_paths = glob.glob(file_path_pattern)
-    assert slice_file_paths
     sample_file = sorted(slice_file_paths)[0]
     im = cv2.imread(sample_file)
     return im.shape[0], im.shape[1]
 
 
-def get_slice_contain_roi_bitmap(image_dir, sliced_images_path_pattern,
+def get_slice_contain_roi_bitmap(image_dir, slice_file_paths,
                                  image_annotations):
     """Given the base image annotations, return a roi bitmap for sliced images.
 
@@ -130,9 +126,9 @@ def get_slice_contain_roi_bitmap(image_dir, sliced_images_path_pattern,
         slice_w: width of the sliced images
         slice_h: height of the slice images
     """
-    grid_h, grid_w = get_grid_shape(sliced_images_path_pattern)
+    grid_h, grid_w = get_grid_shape(slice_file_paths)
     print("grid size: ({}, {})".format(grid_w, grid_h))
-    slice_h, slice_w = get_slice_shape(sliced_images_path_pattern)
+    slice_h, slice_w = get_slice_shape(slice_file_paths)
 
     slice_contain_roi_bitmap = [
         [False for _ in range(grid_h)] for _ in range(grid_w)]
@@ -147,10 +143,16 @@ def get_slice_contain_roi_bitmap(image_dir, sliced_images_path_pattern,
         key_points = [(xmin, ymin), (xmax, ymin),
                       (xmin, ymax), (xmax, ymax)]
         for (x, y) in key_points:
+            # if the point is too close to the boundary, then we ignore fit
+            MINIMUM_DISTANCE_RATIO = 0.1
+            if ((x % slice_w < slice_w * MINIMUM_DISTANCE_RATIO)
+               or (y % slice_h < slice_h * MINIMUM_DISTANCE_RATIO)):
+                continue
+            grid_x, grid_y = int(x / slice_w), int(y / slice_h)
+
             # due to rectifying bounding boxes to be rectangles,
             # annotations have points that are beyond boundry of image
             # resolutions
-            grid_x, grid_y = int(x / slice_w), int(y / slice_h)
             grid_x = min(grid_w - 1, max(grid_x, 0))
             grid_y = min(grid_h - 1, max(grid_y, 0))
             print("marking grid cell ({}, {}) as positive".format(grid_x,
@@ -159,7 +161,7 @@ def get_slice_contain_roi_bitmap(image_dir, sliced_images_path_pattern,
     return slice_contain_roi_bitmap
 
 
-def symlink_or_copy_slices_by_bitmap(sliced_images_path_pattern,
+def symlink_or_copy_slices_by_bitmap(slice_file_paths,
                                      slice_contain_roi_bitmap,
                                      category_dir_dict,
                                      copy=False):
@@ -173,24 +175,20 @@ def symlink_or_copy_slices_by_bitmap(sliced_images_path_pattern,
         category_dir_dict: output dir path for different categories
         copy: if True, then copy, otherwise symlink
     """
-    grid_h, grid_w = get_grid_shape(sliced_images_path_pattern)
+    grid_h, grid_w = get_grid_shape(slice_file_paths)
+    h_idx_format_string = io_util.get_prefix0_format_string(grid_w)
+    v_idx_format_string = io_util.get_prefix0_format_string(grid_h)
+    idx_format_string = h_idx_format_string + \
+        "_" + v_idx_format_string
+    slice_file_path_ext = os.path.splitext(slice_file_paths[0])[1]
+    slice_file_path_prefix = '_'.join(
+        slice_file_paths[0].split('_')[:-2]) + '_'
+
     for h_idx in range(len(slice_contain_roi_bitmap)):
         for v_idx in range(len(slice_contain_roi_bitmap[h_idx])):
-            h_idx_format_string = io_util.get_prefix0_format_string(grid_w)
-            v_idx_format_string = io_util.get_prefix0_format_string(grid_h)
-            idx_format_string = h_idx_format_string + \
-                "_" + v_idx_format_string
             idx_string = idx_format_string.format(h_idx, v_idx)
-            sliced_tile_path_pattern = sliced_images_path_pattern + '*{}*'
-            image_file_paths = glob.glob(
-                sliced_tile_path_pattern.format(idx_string))
-            if len(image_file_paths) != 1:
-                import pdb
-                pdb.set_trace()
-
-            assert len(image_file_paths) == 1
-
-            image_file_path = image_file_paths[0]
+            image_file_path = (slice_file_path_prefix
+                               + idx_string + slice_file_path_ext)
             image_output_dir = category_dir_dict[
                 slice_contain_roi_bitmap[h_idx][v_idx]]
             if copy:
@@ -227,10 +225,14 @@ def group_sliced_images_by_label(dataset, image_dir, annotation_dir,
         image_annotations = annotations[annotations['imageid'] == imageid]
         sliced_images_path_pattern = (
             slice_annotations.get_sliced_images_path_pattern(imageid))
+
+        slice_file_paths = glob.glob(sliced_images_path_pattern)
+        assert slice_file_paths
+
         print("processing slices from base image id: {}".format(imageid))
         slice_contain_roi_bitmap = get_slice_contain_roi_bitmap(
-            image_dir, sliced_images_path_pattern, image_annotations)
-        symlink_or_copy_slices_by_bitmap(sliced_images_path_pattern,
+            image_dir, slice_file_paths, image_annotations)
+        symlink_or_copy_slices_by_bitmap(slice_file_paths,
                                          slice_contain_roi_bitmap,
                                          group_dir_paths)
 
@@ -292,6 +294,19 @@ def select_images(video_list_file_path, vid_base_dir, output_dir,
 # Preprocess for stanford
 #
 ############################################################
+def sample_files_from_directory(input_dir, output_dir,
+                                sample_num=1000):
+    """Sample by copy files from input_dir to output_dir.
+    """
+    file_paths = glob.glob(os.path.join(input_dir, '*'))
+    random.shuffle(file_paths)
+    sample_paths = file_paths[:sample_num]
+    io_util.create_dir_if_not_exist(output_dir)
+    for sample_path in sample_paths:
+        os.symlink(sample_path, os.path.join(
+            output_dir, os.path.basename(sample_path)))
+
+
 def flatten_stanford_dir(input_dir, output_dir):
     """Move all videos in the stanford dataset to the same dir."""
     io_util.flatten_directory_with_symlink(input_dir, output_dir)
