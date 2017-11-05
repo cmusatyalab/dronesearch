@@ -81,8 +81,20 @@ These are the experiments and scripts for mobisys'18
 
    # sample positive and negative examples
    cd ~/mobisys/scripts
-   python preprocess.py sample-files-from-directory /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train_negative /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/photos/negative 20000
-   python preprocess.py sample-files-from-directory /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train_positive /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train/photos/positive 10000
+   tiled_stanford=/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification
+   python preprocess.py sample-files-from-directory $tiled_stanford/train_negative $tiled_stanford/train/photos/negative 20000
+   python preprocess.py sample-files-from-directory $tiled_stanford/train_positive $tiled_stanford/train/photos/positive 10000
+
+   # To train mobilenet, go to tf-slim dir first
+   TFSLIM="${MOBISYS}/scripts/mobilenet/research/slim"
+   cd $TFSLIM
+
+   # convert data format into tf-record for tensorflow training
+   python -m datasets/convert_twoclass run --dataset_dir=$tiled_stanford/train --mode=train --validation_percentage=0.1
+   python -m datasets/convert_twoclass run --dataset_dir=$tiled_stanford/test --mode=test
+
+   # start finetuning mobilenet
+   bash scripts/finetune_mobilenet_v1_on_stanford.sh
    ```
 
 
