@@ -3,16 +3,17 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import cv2
-import fire
 import glob
 import math
-import numpy as np
 import os
 import random
 import shutil
 
+import numpy as np
 import annotation
+import cv2
+import fire
+
 import io_util
 
 
@@ -134,12 +135,12 @@ def get_grid_shape(slice_file_paths):
 
 
 def get_slice_shape(slice_file_paths):
-    """
+    """Get the width and the height of a tile
 
     Args:
       slice_file_paths: 
 
-    Returns:
+    Returns: width, height of a tile
       
 
     """
@@ -295,23 +296,59 @@ def group_sliced_images_by_label(dataset, image_dir, annotation_dir,
 # Preprocess for ImageNet VID
 #
 ############################################################
-def gather_images(video_list_file_path, feaas):
-    """
+def gather_images(item_list_file_path,
+                  base_dir,
+                  output_dir,
+                  combine_path_func=os.path.join,
+                  max_num=2**20):
+    """Gather images from base_dir according to item_list_file_path.
+
+    The gathered images are symlinks in output_dir. If max_num <
+    len(item_list), result images are randomly sampled.
 
     Args:
-      video_list_file_path: 
-      feaas: 
+      item_list_file_path: A file with a relative path at each line.
+      base_dir: Base directory to be combined with relative paths.
+      combine_path_func: Function to combine base_dir and relative path. The
+      input is base_dir, relative_path. The return value could be either a
+      single path or a nested list of paths
+      output_dir: Output directory
+      max_num:  (Default value = 2**20)
 
-    Returns:
+    Returns: None
 
     """
-    pass
+    # get relative paths
+    with open(item_list_file_path, 'r') as f:
+        contents = f.read().splitlines()
+    image_relative_paths = [line.split(' ')[0] for line in contents]
+
+    # get absolute paths
+    image_absolute_paths = [
+        combine_path_func(base_dir, relative_path)
+        for relative_path in image_relative_paths
+    ]
+    # flatten the list as combine_path_func may return lists as well
+    image_absolute_paths = set(io_util.flatten_iterable(image_absolute_paths))
+    random.shuffle(image_relative_paths)
+
+    io_util.create_dir_if_not_exist(output_dir)
+
+    selected_num = 0
+    for file_path in image_absolute_paths:
+        # give each symlink a unique name
+        symlink_name = os.path.relpath(file_path, base_dir).replace('/', '_')
+        os.symlink(file_path, os.path.join(output_dir, symlink_name))
+
+        selected_num += 1
+        if selected_num > max_num:
+            break
 
 
-def select_images(video_list_file_path,
-                  vid_base_dir,
-                  output_dir,
-                  max_num=2**20):
+def gather_frame_sequences(video_list_file_path,
+                           vid_base_dir,
+                           output_dir,
+                           max_num=2**20):
     """Prepare train and test image dir structure.
 
     Create symlinks in output_dir pointing to image paths specified by
@@ -322,45 +359,23 @@ def select_images(video_list_file_path,
       vid_base_dir: image base dir. combined with each line in
     video_list_file_path to get absolute path.
       max_num: max number of selection (Default value = 2**20)
-      output_dir: 
+      output_dir: Output directory
 
-    Returns:
+    Returns: None
 
     """
-    with open(video_list_file_path, 'r') as f:
-        contents = f.read().splitlines()
-    frame_sequence_relative_paths = [line.split(' ')[0] for line in contents]
-    random.shuffle(frame_sequence_relative_paths)
 
-    selected_num = 0
-    for frame_sequence_relative_path in frame_sequence_relative_paths:
-        frame_sequence_dir_path = os.path.join(vid_base_dir,
-                                               frame_sequence_relative_path)
+    def combine_path_func(base_dir, relative_path):
+        frame_sequence_dir_path = os.path.join(base_dir, relative_path)
         file_paths = glob.glob(os.path.join(frame_sequence_dir_path, '*'))
-        skipped = False
-        for file_path in file_paths:
-            # give each symlink a unique name
-            symlink_name = os.path.relpath(file_path, vid_base_dir).replace(
-                '/', '_')
-            try:
-                os.symlink(file_path, os.path.join(output_dir, symlink_name))
-            except OSError as e:
-                # A video may contain multiple objects
-                # therefore appears multiple
-                # times in the video_list_file_path provided
-                if e.errno == 17:
-                    print('skip video {} since'
-                          'it has been included'.format(file_path))
-                    skipped = True
-                    break
-                else:
-                    raise e
+        return file_paths
 
-        if not skipped:
-            print('added {} files'.format(selected_num))
-            selected_num += len(file_paths)
-        if selected_num > max_num:
-            break
+    gather_images(
+        video_list_file_path,
+        vid_base_dir,
+        output_dir,
+        combine_path_func=combine_path_func,
+        max_num=2**20)
 
 
 ############################################################
