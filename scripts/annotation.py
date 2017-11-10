@@ -4,9 +4,12 @@ from __future__ import (absolute_import, division, print_function,
     unicode_literals)
 
 import abc
+import collections
 import glob
+import numpy as np
 import os
 
+import cv2
 import io_util
 
 
@@ -18,11 +21,32 @@ def get_positive_annotation_mask(annotations):
     return mask
 
 
+def _intersection_area(bx1, bx2):
+    """Calculate intersection areas among two bounding boxes.
+
+    Args:
+      bx1: Bounding box1 in the form of (xmin, ymin, xmax, ymax)
+      bx2: Bounding box2 in the same format
+
+    Returns:
+
+    """
+    ixmin = np.maximum(bx1[0], bx2[0])
+    iymin = np.maximum(bx1[1], bx2[1])
+    ixmax = np.minimum(bx1[2], bx2[2])
+    iymax = np.minimum(bx1[3], bx2[3])
+    iw = np.maximum(ixmax - ixmin + 1., 0.)
+    ih = np.maximum(iymax - iymin + 1., 0.)
+    inters = iw * ih
+    return inters
+
+
 class SliceAnnotations(object):
     """Annotations base class for tiled experiments.
 
     Used by group_sliced_images_by_label to get annotations of interests.
     """
+
     def __init__(self, dataset, slice_image_dir, annotation_dir):
         self._dataset = dataset
         self._annotation_dir = annotation_dir
@@ -46,6 +70,7 @@ class SliceAnnotations(object):
 class SliceAnnotationsFactory(object):
     """Factory for tile annotations
     """
+
     @classmethod
     def get_annotations_for_slices(*args, **kwargs):
         # first argument is the class
@@ -67,6 +92,7 @@ class MunichCarSliceAnnotations(SliceAnnotations):
     test data. Therefore, the _base_annotations are the annotations we're
     interested in, since no sampling on the train/test dataset is used.
     """
+
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         # annotations for full resolution images
@@ -82,8 +108,7 @@ class MunichCarSliceAnnotations(SliceAnnotations):
         return self._base_annotations
 
     def get_sliced_images_path_pattern(self, imageid):
-        return os.path.join(self._slice_image_dir,
-                            '*{}*'.format(imageid))
+        return os.path.join(self._slice_image_dir, '*{}*'.format(imageid))
 
 
 class StanfordCarSliceAnnotations(SliceAnnotations):
@@ -92,7 +117,12 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
     The annotation_dir for stanford dataset loads all annotations. Filtering
     are performed to return only the imageids and annotations of interests.
 
+    Args:
+
+    Returns: A tiled annotation objects for Stanford dataset
+
     """
+
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         # annotations for full resolution images
@@ -100,24 +130,33 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
             self._annotation_dir)
         self._imageids = None
         self._annotations = None
+        self._imageids_to_tile_paths_lut = collections.defaultdict(list)
+        print('building imageids to tile paths map')
+        self._load_imageids_and_imageids_to_tile_paths_lut()
+        print('finished loading annotations')
+
+    def _load_imageids_and_imageids_to_tile_paths_lut(self):
+        """Populate imageids and imageids to tile path map"""
+        slice_file_paths = glob.glob(os.path.join(self._slice_image_dir, '*'))
+        for file_path in slice_file_paths:
+            slice_file_basename = os.path.basename(file_path)
+            components = slice_file_basename.split('_')
+            imageid = '_'.join(
+                [components[0], components[1],
+                 str(int(components[3]))])
+            self._imageids_to_tile_paths_lut[imageid].append(file_path)
+        self._imageids = self._imageids_to_tile_paths_lut.keys()
 
     @property
     def imageids(self):
+        """Return the entire set of image ids for the loaded annotations"""
         if not self._imageids:
-            slice_file_paths = glob.glob(
-                os.path.join(self._slice_image_dir, '*'))
-            slice_file_basenames = [
-                os.path.basename(file_path) for file_path in slice_file_paths]
-            file_basename_components = [file_basename.split('_') for
-                                        file_basename in slice_file_basenames]
-            imageids = ['_'.join([components[0], components[1],
-                                  str(int(components[3]))]) for components in
-                        file_basename_components]
-            self._imageids = list(set(imageids))
+            self._load_imageids_and_imageids_to_paths_lut()
         return self._imageids
 
     @property
     def annotations(self):
+        """Return the annotations loaded"""
         if not self._annotations:
             self._base_annotations['imageid'] = (
                 self._base_annotations['videoid'] + '_' +
@@ -130,10 +169,175 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
             self._annotations = self._base_annotations[mask]
         return self._annotations
 
-    def get_sliced_images_path_pattern(self, imageid):
+    def get_imageid(self, videoid, frameid):
+        """Construct annotation imageid from dataframe videoid and frameid.
+
+        Args:
+          videoid: A value from videoid column from annotation dataframe
+          frameid: A value from frameid column from annotation dataframe
+
+        Returns:
+
+        """
+        return '{}_{}'.format(videoid, frameid)
+
+    def get_tile_file_basename_without_ext(self, imageid, tile_coord):
+        """Construct the tile image base filename without extension.
+
+        The base filename without extension serves as the redis key for
+        indexing prediction results.
+
+        Args:
+          imageid: Annotation imageid
+          tile_coord: Coordinate of a tile in the form of (x, y)
+
+        Returns:
+
+        """
+        videoid, frameid = self._convert_imageid_to_videoid_and_frameid(
+            imageid)
+        return '{}_video.mov_{:010d}_{}_{}'.format(
+            videoid, frameid, tile_coord[0], tile_coord[1])
+
+    def _convert_imageid_to_videoid_and_frameid(self, imageid):
+        """Convert an annotation imageid to videoid and frameid
+
+        Videoid corresponds to the 'videoid' column in annotation pandas
+        dataframe. And frameid corresponds to 'frameid'
+
+        Args:
+          imageid: Imageid of the base image.
+
+        Returns: videoid, frameid
+
+        """
         components = imageid.split('_')
-        video_id = '_'.join([components[0], components[1]])
-        frame_id = int(components[2])
+        videoid = '_'.join([components[0], components[1]])
+        frameid = int(components[2])
+        return videoid, frameid
+
+    def get_sliced_images_path_pattern(self, imageid):
+        """Get the search string pattern for tile images divided from a base image.
+
+        Args:
+          imageid: Imageid of the base image.
+
+        Returns: The search string.
+
+        """
+        videoid, frameid = self._convert_imageid_to_videoid_and_frameid(
+            imageid)
         return os.path.join(self._slice_image_dir,
-                            '*{}_video.mov_{:010d}_*'.format(video_id,
-                                                             frame_id))
+                            '*{}_video.mov_{:010d}_*'.format(videoid, frameid))
+
+    def get_image_slice_paths(self, imageid):
+        """Get absolute file paths of all tile images from the base image.
+
+        Args:
+          imageid: Imageid of the base image.
+
+        Returns: A list of absolute tile image file path.
+
+        """
+        # sliced_images_path_pattern = self.get_sliced_images_path_pattern(
+        #     imageid)
+        # slice_file_paths = glob.glob(sliced_images_path_pattern)
+        slice_file_paths = self._imageids_to_tile_paths_lut[imageid]
+        if not slice_file_paths:
+            raise ValueError(
+                'Did not find any slices for imageid: {}'.format(imageid))
+        return slice_file_paths
+
+    def get_grid_shape(self, imageid):
+        """Get how many tiles a base image is divided into.
+
+        Args:
+          imageid: Imageid of the base image.
+
+        Returns: Height and width of the divided grid.
+
+        """
+        slice_file_paths = self.get_image_slice_paths(imageid)
+        slice_file_basenames = [
+            os.path.splitext(os.path.basename(file_path))[0]
+            for file_path in slice_file_paths
+        ]
+        vertical_indices = [
+            int(basename.split("_")[-1]) for basename in slice_file_basenames
+        ]
+        horizontal_indices = [
+            int(basename.split("_")[-2]) for basename in slice_file_basenames
+        ]
+        return max(vertical_indices) + 1, max(horizontal_indices) + 1
+
+    def get_slice_shape(self, imageid):
+        """Get the shape of a tile image.
+
+        Args:
+          imageid: Imageid of the base image.
+
+        Returns: Height and width of the tile.
+
+        """
+        slice_file_paths = self.get_image_slice_paths(imageid)
+        sample_file = sorted(slice_file_paths)[0]
+        im = cv2.imread(sample_file)
+        return im.shape[0], im.shape[1]
+
+    def get_tiles_contain_bounding_box(self, imageid, bx):
+        """Return coordinates of the tiles that contain input bounding box.
+        
+        The tile coordinate system is the same as opencv image coordinate
+        system, which starts with (0,0) for the top-left corner. First element
+        of coordinate is x-axis, with direction going to the right. The second
+        element of the coordinate is y-axis, with the direction going down. For
+        an images divided into 2x2 tiles, the coordinates are following:
+        (0,0) | (1,0)
+        -------------
+        (0,1) | (1,1)
+        
+        Args:
+          imageid: Base image id. should be a value 'imageid' column when
+          loaded annotations
+          bx: Bounding box tuple in the form of (xmin, ymin, xmax, ymax).
+        
+        Returns: A list of tile coordinates that overlap with this bounding
+        box.
+
+        Args:
+          imageid: 
+          bx: 
+
+        Returns:
+
+        
+        """
+        # The minimum % of distance a key point coordinate to image boundary
+        # for it to be considered as containing the bounding box In other
+        # words, if a keypoints lies at this percentage of margin of the tile,
+        # then we do not consider that tile to contain the bounding box.
+        MINIMUM_DISTANCE_RATIO = 0.1
+
+        grid_h, grid_w = self.get_grid_shape(imageid)
+        slice_h, slice_w = self.get_slice_shape(imageid)
+
+        (xmin, ymin, xmax, ymax) = bx
+        # upper left, upper right, lower left, lower right
+        key_points = [(xmin, ymin), (xmax, ymin), (xmin, ymax), (xmax, ymax)]
+
+        tiles = set()
+        # BUG: What if the object is small and upper left and lower right are all in the 10% margin? Need to fix this.
+        # what if the object is large and it spans over entire image
+        for (x, y) in key_points:
+            # if ((x % slice_w < slice_w * MINIMUM_DISTANCE_RATIO)
+            #         or (y % slice_h < slice_h * MINIMUM_DISTANCE_RATIO)):
+            #     continue
+            grid_x, grid_y = int(x / slice_w), int(y / slice_h)
+
+            # due to rectifying bounding boxes to be rectangles,
+            # annotations have points that are beyond boundry of image
+            # resolutions
+            grid_x = min(grid_w - 1, max(grid_x, 0))
+            grid_y = min(grid_h - 1, max(grid_y, 0))
+            tiles.add((grid_x, grid_y))
+        return list(tiles)

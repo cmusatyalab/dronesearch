@@ -81,8 +81,8 @@ def slice_images(input_dir,
       and <=1.
     They are treated as the percentage of the original resolution. (Default
     value = False)
-      input_dir: 
-      output_dir: 
+      input_dir: Input image directory.
+      output_dir: Output image directory.
 
     Returns:
 
@@ -112,7 +112,7 @@ def slice_images(input_dir,
 
 
 def get_grid_shape(slice_file_paths):
-    """
+    """Deprecated. Use annotation.py instead
 
     Args:
       slice_file_paths: 
@@ -135,7 +135,9 @@ def get_grid_shape(slice_file_paths):
 
 
 def get_slice_shape(slice_file_paths):
-    """Get the width and the height of a tile
+    """Deprecated. Use annotation.py instead
+
+    Get the width and the height of a tile
 
     Args:
       slice_file_paths: 
@@ -402,17 +404,18 @@ def sample_files_from_directory(input_dir, output_dir, sample_num=1000):
                    os.path.join(output_dir, os.path.basename(sample_path)))
 
 
-def flatten_stanford_dir(input_dir, output_dir):
+def flatten_stanford_dir(input_dir, output_dir, followlinks=False):
     """Move all videos in the stanford dataset to the same dir.
 
     Args:
       input_dir: 
       output_dir: 
+      followlinks:  (Default value = False)
 
     Returns:
 
     """
-    io_util.flatten_directory_with_symlink(input_dir, output_dir)
+    io_util.flatten_directory_with_symlink(input_dir, output_dir, followlinks)
 
 
 def group_stanford_images(image_dir,

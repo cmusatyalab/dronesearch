@@ -163,14 +163,14 @@ def parse_munich_annotation_file(file_path):
     return annotations
 
 
-def flatten_directory_with_symlink(input_dir, output_dir):
+def flatten_directory_with_symlink(input_dir, output_dir, followlinks):
     """Flatten the input_dir into only 1 level.
 
     File names uses sub directory name as prefix for naming.
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    for root, dirs, filenames in os.walk(input_dir):
+    for root, dirs, filenames in os.walk(input_dir, followlinks=followlinks):
         for filename in filenames:
             src_filepath = os.path.join(root, filename)
             relpath = os.path.relpath(src_filepath, input_dir)
