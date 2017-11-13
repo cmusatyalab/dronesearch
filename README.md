@@ -62,26 +62,26 @@ These are the experiments and scripts for mobisys'18
 
    # group tile positive examples together from all tile images from positive full res images
    # for train
-   python preprocess.py group-sliced-images-by-label stanford /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/full_resolution_train_positive_sliced /home/junjuew/mobisys18/processed_dataset/stanford_campus/annotations /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/sliced_train_positive
+   tiled_stanford=/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification
+   python preprocess.py group-sliced-images-by-label stanford ${tiled_stanford}/full_resolution_train_positive_sliced /home/junjuew/mobisys18/processed_dataset/stanford_campus/annotations ${tiled_stanford}sliced_train_positive
    # for test
-   python preprocess.py group-sliced-images-by-label stanford /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/full_resolution_test_positive_sliced /home/junjuew/mobisys18/processed_dataset/stanford_campus/annotations /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/sliced_test_positive
+   python preprocess.py group-sliced-images-by-label stanford ${tiled_stanford}/full_resolution_test_positive_sliced /home/junjuew/mobisys18/processed_dataset/stanford_campus/annotations ${tiled_stanford}/sliced_test_positive
 
    # merge tiles in full resolution positive examples that don't actually have object of interests into negative set
    cd /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/
    mkdir train_negative
-   find sliced_train_positive/negative/ -name '*.*' | xargs mv -t train_negative/
-   find full_resolution_train_negative_sliced/ -name '*.*' | xargs mv -t train_negative/
-   mv sliced_train_positive/positive train_positive
-   rm -rf sliced_train_positive
+   cd train_negative
+   find /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/full_resolution_train_negative_sliced/ -type f -exec ln -s '{}' . \;
+   find /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/1_discard_small_overlap_roi/full_resolution_train_positive_regrouped_by_tiles/negative/ -type l -exec ln -s '{}' . \;
 
-   mv full_resolution_test_negative_sliced test_negative
-   find sliced_test_positive/negative/ -name '*.*' | xargs mv -t test_negative/
-   mv sliced_test_positive/positive test_positive
-   rm -rf sliced_test_positive
-
+   mkdir test_negative
+   cd test_negative
+   find /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/full_resolution_test_negative_sliced/ -type f -exec ln -s '{}' . \;
+   find /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/1_discard_small_overlap_roi/full_resolution_test_positive_regrouped_by_tiles/negative/ -type l -exec ln -s '{}' . \;
+   
    # sample positive and negative examples
    cd ~/mobisys/scripts
-   tiled_stanford=/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification
+   tiled_stanford=/home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/1_discard_small_overlap_roi
    python preprocess.py sample-files-from-directory $tiled_stanford/train_negative $tiled_stanford/train/photos/negative 20000
    python preprocess.py sample-files-from-directory $tiled_stanford/train_positive $tiled_stanford/train/photos/positive 10000
 

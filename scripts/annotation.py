@@ -1,7 +1,7 @@
 """Annotation Wrapper and related logic.
 """
 from __future__ import (absolute_import, division, print_function,
-    unicode_literals)
+                        unicode_literals)
 
 import abc
 import collections
@@ -41,6 +41,35 @@ def _intersection_area(bx1, bx2):
     return inters
 
 
+def is_small_bx_in_big_bx(
+        small_bx, large_bx,
+        intersection_over_small_bx_percentage_threshold=0.25):
+    """Check if the small bounding box is in the big bounding box.
+
+    The condition is determined by the intersection area over the area of the
+    small bounding box. This method is used to determine whether ROI is in a
+    tile or not.
+
+    Args:
+      small_bx: Small bounding box in the form of (xmin, ymin, xmax, ymax)
+      large_bx: Large bounding box in the same form.
+      intersection_over_small_bx_percentage_threshold: An percentage above this
+      threshold would be considered the small box to be in the big box (Default
+      value = 0.25)
+
+    Returns: Whether or not the small box is in the big box
+
+    """
+    intersection_area = _intersection_area(small_bx, large_bx)
+    small_bx_area = (small_bx[2] - small_bx[0] + 1.0) * (
+        small_bx[3] - small_bx[1] + 1.0)
+    intersection_over_small_bx_percentage = (
+        intersection_area * 1.0 / small_bx_area)
+    ret = (intersection_over_small_bx_percentage >
+           intersection_over_small_bx_percentage_threshold)
+    return ret
+
+
 class SliceAnnotations(object):
     """Annotations base class for tiled experiments.
 
@@ -65,6 +94,18 @@ class SliceAnnotations(object):
     @abc.abstractmethod
     def get_sliced_images_path_pattern(self, imageid):
         """Return sliced image path patterns for the imageid"""
+
+    @abc.abstractmethod
+    def get_image_slice_paths(self, imageid):
+        """Get absolute file paths of all tile images from the base image."""
+
+    @abc.abstractmethod
+    def get_grid_shape(self, imageid):
+        """Get how many tiles a base image is divided into."""
+
+    @abc.abstractmethod
+    def get_slice_shape(self, imageid):
+        """Get the shape of a tile image."""
 
 
 class SliceAnnotationsFactory(object):
@@ -280,7 +321,7 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
 
         """
         slice_file_paths = self.get_image_slice_paths(imageid)
-        sample_file = sorted(slice_file_paths)[0]
+        sample_file = slice_file_paths[0]
         im = cv2.imread(sample_file)
         return im.shape[0], im.shape[1]
 
@@ -312,12 +353,6 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
 
         
         """
-        # The minimum % of distance a key point coordinate to image boundary
-        # for it to be considered as containing the bounding box In other
-        # words, if a keypoints lies at this percentage of margin of the tile,
-        # then we do not consider that tile to contain the bounding box.
-        MINIMUM_DISTANCE_RATIO = 0.1
-
         grid_h, grid_w = self.get_grid_shape(imageid)
         slice_h, slice_w = self.get_slice_shape(imageid)
 
@@ -326,12 +361,7 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
         key_points = [(xmin, ymin), (xmax, ymin), (xmin, ymax), (xmax, ymax)]
 
         tiles = set()
-        # BUG: What if the object is small and upper left and lower right are all in the 10% margin? Need to fix this.
-        # what if the object is large and it spans over entire image
         for (x, y) in key_points:
-            # if ((x % slice_w < slice_w * MINIMUM_DISTANCE_RATIO)
-            #         or (y % slice_h < slice_h * MINIMUM_DISTANCE_RATIO)):
-            #     continue
             grid_x, grid_y = int(x / slice_w), int(y / slice_h)
 
             # due to rectifying bounding boxes to be rectangles,

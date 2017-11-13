@@ -151,7 +151,7 @@ def get_slice_shape(slice_file_paths):
     return im.shape[0], im.shape[1]
 
 
-def get_slice_contain_roi_bitmap(image_dir, slice_file_paths,
+def get_slice_contain_roi_bitmap(image_dir, imageid, slice_annotations,
                                  image_annotations):
     """Given the base image annotations, return a roi bitmap for sliced images.
 
@@ -171,9 +171,8 @@ def get_slice_contain_roi_bitmap(image_dir, slice_file_paths,
     Returns:
 
     """
-    grid_h, grid_w = get_grid_shape(slice_file_paths)
-    print("grid size: ({}, {})".format(grid_w, grid_h))
-    slice_h, slice_w = get_slice_shape(slice_file_paths)
+    grid_h, grid_w = slice_annotations.get_grid_shape(imageid)
+    slice_h, slice_w = slice_annotations.get_slice_shape(imageid)
 
     slice_contain_roi_bitmap = [[False for _ in range(grid_h)]
                                 for _ in range(grid_w)]
@@ -186,22 +185,25 @@ def get_slice_contain_roi_bitmap(image_dir, slice_file_paths,
             image_annotation["ymax"]
         # upper left, upper right, lower left, lower right
         key_points = [(xmin, ymin), (xmax, ymin), (xmin, ymax), (xmax, ymax)]
+        grid_coords = set()
         for (x, y) in key_points:
-            # if the point is too close to the boundary, then we ignore fit
-            MINIMUM_DISTANCE_RATIO = 0.1
-            if ((x % slice_w < slice_w * MINIMUM_DISTANCE_RATIO)
-                    or (y % slice_h < slice_h * MINIMUM_DISTANCE_RATIO)):
-                continue
             grid_x, grid_y = int(x / slice_w), int(y / slice_h)
-
             # due to rectifying bounding boxes to be rectangles,
             # annotations have points that are beyond boundry of image
             # resolutions
             grid_x = min(grid_w - 1, max(grid_x, 0))
             grid_y = min(grid_h - 1, max(grid_y, 0))
-            print("marking grid cell ({}, {}) as positive".format(
-                grid_x, grid_y))
-            slice_contain_roi_bitmap[grid_x][grid_y] = True
+            grid_coords.add((grid_x, grid_y))
+
+        # remove those with too small overlap
+        roi = (xmin, ymin, xmax, ymax)
+        for (grid_x, grid_y) in grid_coords:
+            tile = (grid_x * slice_w, grid_y * slice_h, (grid_x + 1) * slice_w,
+                    (grid_y + 1) * slice_h)
+            if annotation.is_small_bx_in_big_bx(roi, tile):
+                print("marking grid cell ({}, {}) as positive".format(
+                    grid_x, grid_y))
+                slice_contain_roi_bitmap[grid_x][grid_y] = True
     return slice_contain_roi_bitmap
 
 
@@ -281,15 +283,10 @@ def group_sliced_images_by_label(dataset, image_dir, annotation_dir,
 
     for imageid in imageids:
         image_annotations = annotations[annotations['imageid'] == imageid]
-        sliced_images_path_pattern = (
-            slice_annotations.get_sliced_images_path_pattern(imageid))
-
-        slice_file_paths = glob.glob(sliced_images_path_pattern)
-        assert slice_file_paths
-
+        slice_file_paths = slice_annotations.get_image_slice_paths(imageid)
         print("processing slices from base image id: {}".format(imageid))
         slice_contain_roi_bitmap = get_slice_contain_roi_bitmap(
-            image_dir, slice_file_paths, image_annotations)
+            image_dir, imageid, slice_annotations, image_annotations)
         symlink_or_copy_slices_by_bitmap(
             slice_file_paths, slice_contain_roi_bitmap, group_dir_paths)
 
