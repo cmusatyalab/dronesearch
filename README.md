@@ -104,3 +104,7 @@ These are the experiments and scripts for mobisys'18
 
 
 python preprocess.py sample-files-from-directory /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/full_resolution_train_positive_sliced /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train_positive_samples_10000 10000
+
+
+# Things to fix:
+  * The preprocessing fn for the mobilenet does a central_crop to crop 0.875 centre images. This effectively remove the training images in which a car just appeared.

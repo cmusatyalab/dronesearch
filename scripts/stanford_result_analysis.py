@@ -11,10 +11,11 @@ import io_util
 import redis
 
 
-def print_stats(positive_dir, negative_dir):
-    r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+def print_stats(positive_dir, negative_dir, redis_db):
+    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
     # class_dirs = [positive_dir, negative_dir]
     class_label_map = {positive_dir: '1', negative_dir: '0'}
+    tp, fp, tn, fp = 0, 0, 0, 0
     for class_dir in class_label_map.keys():
         print(class_dir)
         ids = [
@@ -27,10 +28,23 @@ def print_stats(positive_dir, negative_dir):
         print([(cls, cnt[cls],
                 '{:.2f}%'.format(cnt[cls] / len(predictions) * 100.0))
                for cls in cnt])
+        if class_dir == positive_dir:
+            tp = cnt['1']
+            fn = cnt['0']
+        else:
+            tn = cnt['0']
+            fp = cnt['1']
+    recall = tp / (tp + fn * 1.0)
+    precision = tp / (tp + fp * 1.0)
+    fpr = fp / (fp + tn * 1.0)
+    tpr = recall
+    print('recall: {:.2f}, precision: {:.2f}, fpr: {:.2f}, tpr: {:.2f}'.format(
+        recall, precision, fpr, tpr))
 
 
-def write_wrong_predictions_to_file(input_dir, label, output_file_path):
-    r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+def write_wrong_predictions_to_file(input_dir, label, output_file_path,
+                                    redis_db):
+    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
     ids = [
         os.path.splitext(file_name)[0] for file_name in os.listdir(input_dir)
     ]
@@ -44,18 +58,20 @@ def write_wrong_predictions_to_file(input_dir, label, output_file_path):
     io_util.write_list_to_file(ids_wrong, output_file_path)
 
 
-def write_false_positives_and_false_negatives(positive_dir, negative_dir):
+def write_false_positives_and_false_negatives(positive_dir, negative_dir,
+                                              redis_db):
     class_label_map = {
         positive_dir: ['1', 'false_negative.txt'],
         negative_dir: ['0', 'false_positive.txt']
     }
     for class_dir, [label, output_file_path] in class_label_map.iteritems():
         print(class_dir)
-        write_wrong_predictions_to_file(class_dir, label, output_file_path)
+        write_wrong_predictions_to_file(class_dir, label, output_file_path,
+                                        redis_db)
 
 
-def _get_prediction_results(imageid, slice_annotations, tile_coords):
-    r_server = redis.StrictRedis(host='localhost', port=6379, db=0)
+def _get_prediction_results(imageid, slice_annotations, tile_coords, redis_db):
+    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
     prediction_keys = [
         slice_annotations.get_tile_file_basename_without_ext(
             imageid, tile_coord) for tile_coord in tile_coords
@@ -63,7 +79,8 @@ def _get_prediction_results(imageid, slice_annotations, tile_coords):
     return r_server.mget(prediction_keys)
 
 
-def print_metrics_on_videos(image_dir, annotation_dir, video_list_file_path):
+def print_metrics_on_videos(image_dir, annotation_dir, video_list_file_path,
+                            redis_db):
     # image dir should be just the sliced test images
     dataset = 'stanford'
     slice_annotations = (
@@ -105,7 +122,7 @@ def print_metrics_on_videos(image_dir, annotation_dir, video_list_file_path):
             tile_coords = slice_annotations.get_tiles_contain_bounding_box(
                 imageid, bx)
             predictions = _get_prediction_results(imageid, slice_annotations,
-                                                  tile_coords)
+                                                  tile_coords, redis_db)
             # print('predictions for tiles {} are {}'.format(tile_coords,
             #                                                predictions))
             predictions_ints = [int(prediction) for prediction in predictions]
