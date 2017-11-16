@@ -1,16 +1,19 @@
 """Annotation Wrapper and related logic.
 """
 from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+    unicode_literals)
 
 import abc
 import collections
 import glob
+import itertools
 import numpy as np
+import operator
 import os
 
 import cv2
 import io_util
+import fire
 
 
 def get_positive_annotation_mask(annotations):
@@ -371,3 +374,73 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
             grid_y = min(grid_h - 1, max(grid_y, 0))
             tiles.add((grid_x, grid_y))
         return list(tiles)
+
+
+def get_continuous_sequence(frameids):
+    """Get list of consecutive sequence.
+
+    Args:
+      frameids: A list of frame ids, e.g. [1,2,3,5,6,7]
+
+    Returns: A list of consecutive frame id list, e.g.[[1,2,3],[5,6,7]]
+
+    """
+    event_lengths = []
+    # there are a few tracks in which there are 'lost' frames in between
+    for k, g in itertools.groupby(
+            enumerate(frameids), lambda (i, x): i - x):
+        event_frameids = map(operator.itemgetter(1), g)
+        event_lengths.append(len(event_frameids))
+    return event_lengths
+
+
+def print_car_event_stats(annotation_dir,
+                          video_list_file_path=None):
+    """Print car events stats in the stanford dataset.
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+    annotations = io_util.load_stanford_campus_annotation(annotation_dir)
+    if video_list_file_path:
+        with open(video_list_file_path, 'r') as f:
+            video_names = f.read().splitlines()
+            videoids = [
+                video_name.replace('_video.mov', '')
+                for video_name in video_names
+            ]
+            # filter by video name
+            annotations = annotations[annotations['videoid'].isin(videoids)]
+
+    # filter by label
+    mask = get_positive_annotation_mask(annotations)
+    target_annotations = annotations[mask].copy()
+
+    target_annotations['unique_track_id'] = (
+        target_annotations['videoid'] + '_'
+        + target_annotations['trackid'].astype(str))
+    track_annotations_grp = target_annotations.groupby(['unique_track_id'])
+    # key: video, value: list of event lengths
+    video_to_events = collections.defaultdict(list)
+    for track_id, track_annotations in track_annotations_grp:
+        print('track: {}'.format(track_id))
+        video_id = '_'.join(track_id.split('_')[:2])
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        frameids = sorted_track_annotations['frameid'].values
+        if len(frameids) < 20:
+            # some annotations are duplicates that should have been removed.
+            # usually a label is a car another label is a bus, which overlaps
+            # for <1s
+            continue
+        video_to_events[video_id].append(len(frameids))
+    print('events in videos: {}'.format(video_to_events))
+    total_events = sum([len(events) for events in video_to_events.values()])
+    print('total events: {}'.format(total_events))
+
+
+if __name__ == '__main__':
+    fire.Fire()

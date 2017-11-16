@@ -92,12 +92,12 @@ def slice_images(input_dir,
 
     file_paths = glob.glob(os.path.join(input_dir, '*'))
     for file_path in file_paths:
-        print("slicing file {}".format(file_path))
+        # print("slicing file {}".format(file_path))
         output_prefix, ext = os.path.splitext(os.path.basename(file_path))
         im = cv2.imread(file_path)
         slices = slice_image(
             im, slice_w, slice_h, slice_is_ratio=slice_is_ratio)
-        print('total {}x{} slices'.format(len(slices), len(slices[0])))
+        # print('total {}x{} slices'.format(len(slices), len(slices[0])))
         for h_idx in range(len(slices)):
             h_idx_format_string = io_util.get_prefix0_format_string(
                 len(slices))
