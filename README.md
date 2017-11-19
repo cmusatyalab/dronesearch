@@ -97,14 +97,43 @@ These are the experiments and scripts for mobisys'18
    bash scripts/finetune_mobilenet_v1_on_stanford.sh
    ```
 
+# Freeze and optimize trained model
+python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/mobilenet_train/logs_last_layer_only_150k --dataset_dir $tiled/2_more_test/mobilenet_train --output_dir /tmp/
 
 # Extra resource
   * Tensorflow retrain last layer only: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/image_retraining/retrain.py
 
-
-
-python preprocess.py sample-files-from-directory /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/full_resolution_train_positive_sliced /home/junjuew/mobisys18/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/train_positive_samples_10000 10000
-
-
 # Things to fix:
   * The preprocessing fn for the mobilenet does a central_crop to crop 0.875 centre images. This effectively remove the training images in which a car just appeared.
+
+# Design of the adaptive pipeline
+## Class interfaces
+  * InputSource(): input sources for the pipeline
+    * __init__(feed_path): open feed
+    * read(): get next frame, blocking
+    * close(): close feed
+  * VideoInputSource(InputSource)
+  * FileInputSource(InputSource)
+  * Filter(): filter abstraction
+    * process(image) -> FilterOutput
+    * update(data)
+    * close() -> close filter
+  * FilterFactory: Create filters based on configuration files on disk
+    * create_filter(filter_name)
+  * FilterOutput: Output of Filter
+    * tobytes() -> serialized bytes
+    * frombytes(input_bytes) -> deserialize bytes
+  * TileImageFilterOutput: Tile image as output filter
+  * NetworkService: Networking to backend
+    * __init__() -> get context
+    * send(data)
+    * recv(data)
+  * NetworkFactory: Factory to create networking component
+  * CommandQueue: Queue to receive command
+    * get()
+
+## Requirements
+  * logzero
+  * fire
+  * opencv 2.4
+  * tensorflow

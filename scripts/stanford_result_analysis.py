@@ -1,19 +1,79 @@
 """Analyze stanford results."""
 from __future__ import absolute_import, division, print_function
 
-import collections
+import math
 import os
+import collections
+import json
 import numpy as np
 
-import annotation
 import fire
+import annotation
 import io_util
 import redis
 
+from itertools import izip_longest
 
-def print_stats(positive_dir, negative_dir, redis_db):
-    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
-    # class_dirs = [positive_dir, negative_dir]
+
+def fix_data_format_in_redis():
+    """Convert from string key to list of floats, not used"""
+    r_server = redis.StrictRedis(
+        host='localhost', port=6379, db=2)
+
+    # iterate a list in batches of size n
+    def batcher(iterable, n):
+        args = [iter(iterable)] * n
+        return izip_longest(*args)
+
+    # in batches of 500 delete keys matching user:*
+    batch_idx = 0
+    batch_size = 10000
+    for keybatch in batcher(r_server.scan_iter('*'), 10000):
+        print('{}'.format((batch_idx + 1) * batch_size))
+        outputs = r_server.mget(keybatch)
+        outputs = [json.loads(result_str) for result_str in outputs]
+        r_server.delete(*keybatch)
+        for idx in range(len(keybatch)):
+            r_server.lpush(keybatch[idx], outputs[idx])
+
+
+def _get_class_prediction_for_exp1(r_server, ids):
+    return r_server.mget(ids)
+
+
+def _get_class_prediction_for_exp2(r_server, ids):
+    """For 2_more_test experiments, we store both the softmax values
+    and the 1024 mobilenet feature vectors. This method retrieve
+    class predictions.
+
+    Args:
+      r_server: 
+      ids: 
+
+    Returns:
+
+    """
+    batch_size = 10000
+    total_num = len(ids)
+    batch_num = int(math.ceil(total_num * 1.0 / batch_size))
+    predictions = []
+    for batch_idx in range(batch_num):
+        print('[{}/{}]'.format(((batch_idx + 1) * batch_size), total_num))
+        batch_ids = ids[batch_idx * batch_size:(batch_idx + 1) * batch_size]
+        outputs = r_server.mget(batch_ids)
+        outputs = [json.loads(result_str) for result_str in outputs]
+        outputs = np.array(outputs)
+        outputs = outputs[:, :2]
+        predictions.extend(np.argmax(outputs, axis=1))
+    return predictions
+
+
+def print_stats(positive_dir,
+                negative_dir,
+                redis_db,
+                get_prediction_fn=_get_class_prediction_for_exp2):
+    r_server = redis.StrictRedis(
+        host='localhost', port=6379, db=redis_db, socket_timeout=3600)
     class_label_map = {positive_dir: '1', negative_dir: '0'}
     tp, fp, tn, fp = 0, 0, 0, 0
     for class_dir in class_label_map.keys():
@@ -22,7 +82,7 @@ def print_stats(positive_dir, negative_dir, redis_db):
             os.path.splitext(file_name)[0]
             for file_name in os.listdir(class_dir)
         ]
-        predictions = r_server.mget(ids)
+        predictions = get_prediction_fn(r_server, ids)
         assert all([prediction is not None for prediction in predictions])
         cnt = collections.Counter(predictions)
         print([(cls, cnt[cls],
