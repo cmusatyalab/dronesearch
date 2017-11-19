@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import abc
 import math
+import cPickle as pickle
 
 import numpy as np
 import cv2
@@ -118,7 +119,22 @@ class TFMobilenetFilter(DroneFilter):
         tiles_np = np.asarray(tiles)
         return tiles_np
 
+    def _tile_list_index_to_grid_index(self, index):
+        """Convert index in 1d list back into grid index of (x, y) for tiles
+
+        Args:
+          index: 
+
+        Returns:
+
+        """
+        grid_height = int(1 / self.ratio_tile_height)
+        grid_x = int(index / grid_height)
+        grid_y = index % grid_height
+        return (grid_x, grid_y)
+
     def _tf_divide_to_tiles(self, image_tensor):
+        # tf's implementation of cropping images into tiles
         # image_shape = tf.shape(image_tensor)
         # im_height = image_shape[1]
         # im_width = image_shape[2]
@@ -164,14 +180,36 @@ class TFMobilenetFilter(DroneFilter):
                 self._input_operation.outputs[0]: normalized_tiles
             })
         assert predictions.shape[1] == 2
-        positive_tiles_indices = np.where(
-            np.argmax(predictions, axis=1) == self._positive_class)
-        # TODO(@junjuew) return FilterOutput instead
-        return positive_tiles_indices
-        return tiles[positive_tiles_indices]
+        positive_indices = np.where(
+            np.argmax(predictions, axis=1) == self._positive_class)[0]
+        positive_grid_indices = [
+            self._tile_list_index_to_grid_index(positive_indice)
+            for positive_indice in positive_indices
+        ]
+        return TileFilterOutput(positive_grid_indices, tiles[positive_indices])
 
     def close(self):
         self._sess.close()
 
     def update():
         raise NotImplementedError()
+
+
+class FilterOutput(object):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def tobytes():
+        pass
+
+
+class TileFilterOutput(FilterOutput):
+    def __init__(self, indices, tiles):
+        """Filter Output for tiles
+        """
+        self.indices = indices
+        self.tiles = tiles
+        self._mappings = dict(zip(indices, tiles))
+
+    def tobytes(self):
+        return pickle.dumps(self._mappings)
