@@ -1,19 +1,21 @@
 """Annotation Wrapper and related logic.
 """
 from __future__ import (absolute_import, division, print_function,
-    unicode_literals)
+                        unicode_literals)
 
 import abc
 import collections
 import glob
 import itertools
+import json
 import numpy as np
 import operator
 import os
 
 import cv2
-import io_util
 import fire
+import io_util
+import redis
 
 
 def get_positive_annotation_mask(annotations):
@@ -387,15 +389,49 @@ def get_continuous_sequence(frameids):
     """
     event_lengths = []
     # there are a few tracks in which there are 'lost' frames in between
-    for k, g in itertools.groupby(
-            enumerate(frameids), lambda (i, x): i - x):
+    for k, g in itertools.groupby(enumerate(frameids), lambda (i, x): i - x):
         event_frameids = map(operator.itemgetter(1), g)
         event_lengths.append(len(event_frameids))
     return event_lengths
 
 
-def print_car_event_stats(annotation_dir,
-                          video_list_file_path=None):
+def _group_annotation_by_unique_track_ids(annotations):
+    """Group annotations by unique track ids. track_id in stanford dataset is only
+    unique within a video. This method create unique_track_id by combine it
+    with video_id.
+
+    Args:
+      annotations: 
+
+    Returns:
+
+    """
+    annotations['unique_track_id'] = (
+        annotations['videoid'] + '_' + annotations['trackid'].astype(str))
+    track_annotations_grp = annotations.groupby(['unique_track_id'])
+    return track_annotations_grp
+
+
+def _filter_annotation_by_label(annotations):
+    mask = get_positive_annotation_mask(annotations)
+    target_annotations = annotations[mask].copy()
+    return target_annotations
+
+
+def _filter_annotation_by_video_name(annotations, video_list_file_path):
+    print('filter annotation by videos specified by {}'.format(
+        video_list_file_path))
+    with open(video_list_file_path, 'r') as f:
+        video_names = f.read().splitlines()
+        videoids = [
+            video_name.replace('_video.mov', '') for video_name in video_names
+        ]
+        # filter by video name
+        annotations = annotations[annotations['videoid'].isin(videoids)]
+    return annotations
+
+
+def print_car_event_stats(annotation_dir, video_list_file_path=None):
     """Print car events stats in the stanford dataset.
 
     Args:
@@ -407,27 +443,14 @@ def print_car_event_stats(annotation_dir,
     """
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
-        with open(video_list_file_path, 'r') as f:
-            video_names = f.read().splitlines()
-            videoids = [
-                video_name.replace('_video.mov', '')
-                for video_name in video_names
-            ]
-            # filter by video name
-            annotations = annotations[annotations['videoid'].isin(videoids)]
-
-    # filter by label
-    mask = get_positive_annotation_mask(annotations)
-    target_annotations = annotations[mask].copy()
-
-    target_annotations['unique_track_id'] = (
-        target_annotations['videoid'] + '_'
-        + target_annotations['trackid'].astype(str))
-    track_annotations_grp = target_annotations.groupby(['unique_track_id'])
-    # key: video, value: list of event lengths
-    video_to_events = collections.defaultdict(list)
+        annotations = _filter_annotation_by_video_name(annotations,
+                                                       video_list_file_path)
+    annotations = _filter_annotation_by_label(annotations)
+    track_annotations_grp = _group_annotation_by_unique_track_ids(annotations)
+    # key: video, value: dict of {track_id: list of event lengths}
+    video_to_events = collections.defaultdict(dict)
+    video_to_events_length = collections.defaultdict(dict)
     for track_id, track_annotations in track_annotations_grp:
-        print('track: {}'.format(track_id))
         video_id = '_'.join(track_id.split('_')[:2])
         sorted_track_annotations = track_annotations.sort_values('frameid')
         frameids = sorted_track_annotations['frameid'].values
@@ -436,10 +459,95 @@ def print_car_event_stats(annotation_dir,
             # usually a label is a car another label is a bus, which overlaps
             # for <1s
             continue
-        video_to_events[video_id].append(len(frameids))
-    print('events in videos: {}'.format(video_to_events))
-    total_events = sum([len(events) for events in video_to_events.values()])
+        video_to_events[video_id][track_id] = set(frameids)
+        video_to_events_length[video_id][track_id] = len(frameids)
+    print('events in videos: \n {}'.format(
+        json.dumps(video_to_events_length, indent=4)))
+    total_events = sum(
+        [len(track.values()) for track in video_to_events_length.values()])
     print('total events: {}'.format(total_events))
+
+    print('video positive frame breakdown: {}'.format(total_events))
+    video_to_positive_frame_num = {}
+    for video_id, track in video_to_events.items():
+        video_positive_frame_ids = set()
+        for track_id, frame_ids in track.items():
+            video_positive_frame_ids |= frame_ids
+        video_to_positive_frame_num[video_id] = len(video_positive_frame_ids)
+    print(json.dumps(video_to_positive_frame_num, indent=4))
+    print('total positive frames {}'.format(
+        sum(video_to_positive_frame_num.values())))
+
+
+def store_positive_frame_id_by_video_to_redis(annotation_dir,
+                                              redis_db,
+                                              video_list_file_path=None):
+    """Store positive frameids to redis. Key is video id, value is frame id
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+    annotations = io_util.load_stanford_campus_annotation(annotation_dir)
+    if video_list_file_path:
+        annotations = _filter_annotation_by_video_name(annotations,
+                                                       video_list_file_path)
+    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
+    annotations = _filter_annotation_by_label(annotations)
+    track_annotations_grp = _group_annotation_by_unique_track_ids(annotations)
+    video_to_frame_ids = collections.defaultdict(set)
+    for track_id, track_annotations in track_annotations_grp:
+        print('analyzing track: {}'.format(track_id))
+        video_id = '_'.join(track_id.split('_')[:2])
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        frame_ids = sorted_track_annotations['frameid'].values
+        if len(frame_ids) < 20:
+            # some annotations are duplicates that should have been removed.
+            # usually a label is a car another label is a bus, which overlaps
+            # for <1s
+            continue
+        video_to_frame_ids[video_id] |= set(frame_ids)
+    for video_id, frame_ids in video_to_frame_ids.items():
+        print('{} has {} positive frames'.format(video_id, len(frame_ids)))
+        id_list = map(int, list(frame_ids))
+        id_list.sort()
+        r_server.rpush(video_id, *id_list)
+
+
+def store_annotation_by_frame_id_to_redis(annotation_dir,
+                                          redis_db,
+                                          video_list_file_path=None):
+    """Store annotation by frame id to redis.
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+    annotations = io_util.load_stanford_campus_annotation(annotation_dir)
+    if video_list_file_path:
+        annotations = _filter_annotation_by_video_name(annotations,
+                                                       video_list_file_path)
+    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
+    annotations = _filter_annotation_by_label(annotations)
+    total_rows = annotations.shape[0]
+    current_rows = 0
+    for _, image_annotation in annotations.iterrows():
+        xmin, ymin, xmax, ymax = image_annotation['xmin'], \
+                                 image_annotation['ymin'], \
+                                 image_annotation['xmax'], \
+                                 image_annotation['ymax']
+        frame_id = 'gt_' + image_annotation['videoid'] + '_' + str(
+            image_annotation['frameid'])
+        r_server.rpush(frame_id, json.dumps((xmin, ymin, xmax, ymax)))
+        current_rows += 1
+        if current_rows % 100:
+            print('finished [{}/{}]'.format(current_rows, total_rows))
 
 
 if __name__ == '__main__':
