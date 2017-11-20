@@ -137,3 +137,4 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
   * fire
   * opencv 2.4
   * tensorflow
+  * pyzqm (libzmq5)

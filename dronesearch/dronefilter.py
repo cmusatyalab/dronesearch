@@ -8,11 +8,14 @@ from __future__ import (absolute_import, division, print_function,
 import abc
 import math
 import cPickle as pickle
+import time
 
 import numpy as np
 import cv2
 import tensorflow as tf
 from logzero import logger
+
+import dronesearch.utils as utils
 
 
 class DroneFilter(object):
@@ -46,19 +49,19 @@ class DroneFilter(object):
 class TFMobilenetFilter(DroneFilter):
     def __init__(self, name, model_file, input_height, input_width, input_mean,
                  input_std, input_layer, output_layer, label_file,
-                 ratio_tile_width, ratio_tile_height):
+                 ratio_tile_width, ratio_tile_height, positive_label):
         self.name = name
         self.model_file = model_file
-        self.input_height = input_height
-        self.input_width = input_width
-        self.input_mean = input_mean
-        self.input_std = input_std
+        self.input_height = int(input_height)
+        self.input_width = int(input_width)
+        self.input_mean = int(input_mean)
+        self.input_std = int(input_std)
         self.input_layer = input_layer
         self.output_layer = output_layer
         self.label_file = label_file
-        self.ratio_tile_width = ratio_tile_width
-        self.ratio_tile_height = ratio_tile_height
-        self._postive_label = '1:positive'
+        self.ratio_tile_width = float(ratio_tile_width)
+        self.ratio_tile_height = float(ratio_tile_height)
+        self.positive_label = positive_label
         self._sess = None
         self._input_operation = None
         self._output_operation = None
@@ -116,7 +119,8 @@ class TFMobilenetFilter(DroneFilter):
                 current_tile = im[tile_y:tile_y + tile_h, tile_x:
                                   tile_x + tile_w]
                 tiles.append(current_tile)
-        tiles_np = np.asarray(tiles)
+        # tiles_np = np.asarray(tiles)
+        tiles_np = tiles
         return tiles_np
 
     def _tile_list_index_to_grid_index(self, index):
@@ -163,22 +167,32 @@ class TFMobilenetFilter(DroneFilter):
         self._input_operation = self._graph.get_operation_by_name(input_name)
         self._output_operation = self._graph.get_operation_by_name(output_name)
         self._labels = self._load_labels(self.label_file)
-        assert self._postive_label in self._labels
-        self._positive_class = self._labels.index(self._postive_label)
+        assert self.positive_label in self._labels
+        self._positive_class = self._labels.index(self.positive_label)
         self._sess = tf.Session(graph=self._graph)
 
+    @utils.timeit
     def process(self, image):
         # TODO(@junjuew) check speed on jetson. GPUs are not used to
         # slice image.On sandstorm, _divide_to_tiles on CPU only takes 0.05ms
+        st = time.time()
         tiles = self._divide_to_tiles(image)
+        logger.debug('cropping takes {}ms'.format((time.time() - st) * 1000))
+        st = time.time()
         normalized_tiles = self._sess.run(self._preprocess_output, {
             self._preprocess_input: tiles
         })
+        logger.debug('preprocess takes {}ms'.format((time.time() - st) * 1000))
+        st = time.time()
 
         predictions = self._sess.run(
             self._output_operation.outputs[0], {
                 self._input_operation.outputs[0]: normalized_tiles
             })
+        logger.debug('predictions takes {}ms'.format(
+            (time.time() - st) * 1000))
+        st = time.time()
+
         assert predictions.shape[1] == 2
         positive_indices = np.where(
             np.argmax(predictions, axis=1) == self._positive_class)[0]
@@ -186,7 +200,10 @@ class TFMobilenetFilter(DroneFilter):
             self._tile_list_index_to_grid_index(positive_indice)
             for positive_indice in positive_indices
         ]
-        return TileFilterOutput(positive_grid_indices, tiles[positive_indices])
+        logger.debug('convert to labels {}ms'.format(
+            (time.time() - st) * 1000))
+        return TileFilterOutput(positive_grid_indices,
+                                [tiles[idx] for idx in positive_indices])
 
     def close(self):
         self._sess.close()
@@ -202,14 +219,24 @@ class FilterOutput(object):
     def tobytes():
         pass
 
+    @abc.abstractmethod
+    def frombytes():
+        pass
+
 
 class TileFilterOutput(FilterOutput):
-    def __init__(self, indices, tiles):
+    def __init__(self, indices=None, tiles=None):
         """Filter Output for tiles
         """
         self.indices = indices
         self.tiles = tiles
-        self._mappings = dict(zip(indices, tiles))
+        if (indices is not None) and (tiles is not None):
+            self._mappings = dict(zip(indices, tiles))
 
     def tobytes(self):
         return pickle.dumps(self._mappings)
+
+    def frombytes(self, serialized):
+        self._mappings = pickle.loads(serialized)
+        self.indices = self._mappings.keys()
+        self.tiles = self._mappings.values()

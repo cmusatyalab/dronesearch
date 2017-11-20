@@ -15,6 +15,7 @@ from logzero import logger
 
 from dronesearch import dronefilter
 import dronesearch.inputsource as inputsource
+import dronesearch.networkservice as networkservice
 
 
 def _get_config_parser(config_file):
@@ -77,14 +78,44 @@ def _get_filters_from_config_file(filter_config_file):
     return filters[current_filter_name], filters
 
 
-def _start_event_loop():
-    pass
+def _start_event_loop(source, current_filter, filters, network_service):
+    """Start pipeline of sending filtered images to backend
+
+    Args:
+      source: Input source
+      current_filter: Current selected filter
+      filters: All loaded filter
+      network_service: Network service to backend
+
+    Returns:
+
+    """
+    source.open()
+    current_filter.open()
+    network_service.open()
+    while True:
+        im = source.read()
+        if im is None:
+            logger.info('No image retrieved. exiting.')
+            break
+        else:
+            filter_output = current_filter.process(im)
+            network_service.send(filter_output.tobytes())
+    source.close()
+    current_filter.close()
+    network_service.close()
 
 
-def start_onboard_processing(input_source, filter_config_file):
+def start_onboard_processing(input_source,
+                             filter_config_file,
+                             network_service='zmq_pair',
+                             server_host='localhost',
+                             server_port=9000):
     source = _get_input_source(input_source)
     current_filter, filters = _get_filters_from_config_file(filter_config_file)
-    # _start_event_loop
+    network_service = networkservice.NetworkService.factory(
+        type=network_service, host=server_host, port=server_port)
+    _start_event_loop(source, current_filter, filters, network_service)
 
 
 if __name__ == "__main__":
