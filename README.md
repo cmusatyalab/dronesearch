@@ -188,12 +188,12 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
 - [ ] Speed vs accuracy trade-off varying tile size on drones on individual frames (MobileNet 13ms forward pass, batch 1 on jetson)
 - [ ] Event result accuracy with early discard, latency
 - [ ] Total transmission data and b/w consumed
-## Dynamic filter selection
+## Context aware
 - [ ] Speed and accuracy of dynamic filter selection evaluated on events
 - [ ] Total transmission data and b/w consumed
-## Runtime Specialization
+## Runtime Specialization (Context aware also?)
 - [ ] Accuracy improvements on different filters
-- [ ] Improvements on bandwidth and 
+- [ ] Improvements on bandwidth
 ## Timely Reachback
 - [ ] Drone periodically send false negative to backend, backend request nearby short videos
 - [ ] Total transmission data and b/w consumed
