@@ -138,6 +138,16 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
 # Things to fix:
   * The preprocessing fn for the mobilenet does a central_crop to crop 0.875 centre images. This effectively remove the training images in which a car just appeared.
 
+# Redis content:
+
+* stanford_redis: ground truth information about stanford dataset
+  * db 0: key '<video_id>', value 'positive frame id' as a list
+  * db 1: key 'gt_<video_id>_<frame_id>', value ground truth (xmin, ymin, xmax, ymax) as a list
+* stanford_tile:
+  * db 0: videos with car events(34). grid_width 4, grid_height 4
+* stanford_2_more_test
+
+
 # Design of the adaptive pipeline
 ## Class interfaces
   * InputSource(): input sources for the pipeline
@@ -172,19 +182,18 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
   * pyzqm (libzmq5)
 
 # Experiments for the Paper
-## Use cases and Task
-
-- [ ] A table for different tasks and dataset
-- [ ] Object Detection/Activity Recognition Accuracy for various task
-- [ ] Speed of these detectors on different platforms
-- [ ] Event result Accuracy, latency and b/w consumed
 ## Early discard on Drone
-- [ ] Filter accuracy on full resolution data
+- [x] Filter accuracy on full resolution data
 - [ ] Tiled filter accuracy: per-frame and event-based
 - [ ] Speed and accuracy trade-off of tile size on drones
-- [ ] Event result Accuracy, latency and b/w consumed
+- [ ] Event result accuracy with early discard, latency and b/w consumed
 ## Dynamic filter selection
 - [ ] Event result Accuracy, latency and b/w consumed
 ## Runtime Specialization
+- [ ] Filter Accuracy improvements
 - [ ] Event result Accuracy, latency and b/w consumed
 ## Timely Reachback
+## Different cases and Task
+- [x] A table for different tasks and dataset
+- [ ] Object Detection/Activity Recognition Accuracy for various task: These are the detectors running on the cloudlet, showing that current CV techniques can be helpful for search and rescue
+- [ ] Speed and event detection accuracy of these detectors on drone platforms: Showcase such detectors cannot be simply moved to execute on the mobile h/w (or is a table of execution time enough?)
