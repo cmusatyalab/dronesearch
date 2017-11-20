@@ -1,12 +1,10 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import cv2
 import glob
 import math
 import numpy as np
 import os
-import shutil
 
 import pandas as pd
 
@@ -19,6 +17,26 @@ def write_list_to_file(input_list, file_path, delimiter='\n'):
 def create_dir_if_not_exist(dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
+
+
+def flatten_iterable(iterable):
+    """Flatten an iterable whose elements may also be iterable.
+
+    e.g. flatten a nested list
+
+    Args:
+      iterable: Input iterable to flatten
+
+    Returns: A generator with flattened iterable
+
+    """
+    it = iter(iterable)
+    for e in it:
+        if isinstance(e, (list, tuple)):
+            for f in flatten_iterable(e):
+                yield f
+        else:
+            yield e
 
 
 def get_prefix0_format_string(item_num):
@@ -44,6 +62,7 @@ def rectify_box(xcenter, ycenter, width, height, angle):
     :param angle:
     :return:
     """
+    import cv2
     radian_angle = math.pi * float(angle) / 180.0 if angle > 0 else math.pi + math.pi * (180.0 - float(angle)) / 180.0
     forward_midpoint = (xcenter + math.cos(radian_angle) * width, ycenter + math.sin(radian_angle) * width)
     backward_midpoint = (xcenter - math.cos(radian_angle) * width, ycenter - math.sin(radian_angle) * width)
@@ -144,14 +163,14 @@ def parse_munich_annotation_file(file_path):
     return annotations
 
 
-def flatten_directory_with_symlink(input_dir, output_dir):
+def flatten_directory_with_symlink(input_dir, output_dir, followlinks):
     """Flatten the input_dir into only 1 level.
 
     File names uses sub directory name as prefix for naming.
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    for root, dirs, filenames in os.walk(input_dir):
+    for root, dirs, filenames in os.walk(input_dir, followlinks=followlinks):
         for filename in filenames:
             src_filepath = os.path.join(root, filename)
             relpath = os.path.relpath(src_filepath, input_dir)

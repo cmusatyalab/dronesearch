@@ -6,3 +6,4 @@ py-faster-rcnn
 *.jpg
 environment
 pretrained_models
+pyenv
