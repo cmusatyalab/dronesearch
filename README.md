@@ -186,14 +186,17 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
 - [x] Filter Precision-Recall curve on full resolution frames
 - [ ] Tiled filter Precision-Recall curve evaluated on individual frames
 - [ ] Speed vs accuracy trade-off varying tile size on drones on individual frames (MobileNet 13ms forward pass, batch 1 on jetson)
-- [ ] Event result accuracy with early discard, latency and b/w consumed
+- [ ] Event result accuracy with early discard, latency
+- [ ] Total transmission data and b/w consumed
 ## Dynamic filter selection
 - [ ] Speed and accuracy of dynamic filter selection evaluated on events
-- [ ] b/w consumed
+- [ ] Total transmission data and b/w consumed
 ## Runtime Specialization
 - [ ] Accuracy improvements on different filters
 - [ ] Improvements on bandwidth and 
 ## Timely Reachback
+- [ ] Drone periodically send false negative to backend, backend request nearby short videos
+- [ ] Total transmission data and b/w consumed
 ## Different cases and Task
 - [x] A table for different tasks and dataset
 - [ ] Object Detection/Activity Recognition Accuracy for various task: These are the detectors running on the cloudlet, showing that current CV techniques can be helpful for search and rescue
