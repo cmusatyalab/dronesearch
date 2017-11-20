@@ -7,3 +7,4 @@ py-faster-rcnn
 environment
 pretrained_models
 pyenv
+redis

@@ -138,3 +138,20 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
   * opencv 2.4
   * tensorflow
   * pyzqm (libzmq5)
+
+# Experiments for the Paper
+## Use cases and Task
+- [] A table for different tasks and dataset
+- [] Object Detection/Activity Recognition Accuracy for various task
+- [] Speed of these detectors on different platforms
+- [] Event result Accuracy, latency and b/w consumed
+## Early discard on Drone
+- [] Filter accuracy on full resolution data
+- [] Tiled filter accuracy: per-frame and event-based
+- [] Speed and accuracy trade-off of tile size on drones
+- [] Event result Accuracy, latency and b/w consumed
+## Dynamic filter selection
+- [] Event result Accuracy, latency and b/w consumed
+## Runtime Specialization
+- [] Event result Accuracy, latency and b/w consumed
+## Timely Reachback
