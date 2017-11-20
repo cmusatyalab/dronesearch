@@ -32,6 +32,9 @@ These are the experiments and scripts for mobisys'18
    # prepare images for training. put positive and negative classification examples into different dir
    python preprocess.py group-sliced-images-by-label $PROCESSED/munich/train_sliced $PROCESSED/munich/train_rgb_annotations $PROCESSED/munich/mobilenet_train/photos
 
+   # prepare JIT training images. Pick one image ID from the original test set.
+   scripts/munich_make_jit_data.sh 4K0G0250
+
    # To train mobilenet, go to tf-slim dir first
    TFSLIM="${MOBISYS}/scripts/mobilenet/research/slim/scripts"
    cd $TFSLIM
@@ -41,7 +44,36 @@ These are the experiments and scripts for mobisys'18
 
    # start finetuning mobilenet
    bash scripts/finetune_mobilenet_v1_on_munich.sh
+   
+   # Start evaluation loop (train, validation, test) in another terminal
+   
+   
+   # start JIT training mobilenet
+   scripts/jit_train_mobilenet_v1_on_munich.sh 4K0G0120
    ```
+
+## SVM predicting TP and FP from DNN using Mobilenet's 1024-D pre-logits
+
+    ```bash
+    REDIS_HOST=172.17.0.10
+    TEST_VIDEO=bookstore_video2
+    
+    # Prepare SVM training data in a pickle file.
+    python prepare_jit_train_data.py make_tp_fp_dataset \
+        --redis-host ${REDIS_HOST} \
+        --over_sample_ratio=20 \
+        --file_glob "/home/zf/opt/drone-scalable-search/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/2_more_test/tile_test_by_label/*/${TEST_VIDEO}*" \
+        --output_file /home/zf/opt/drone-scalable-search/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/2_more_test/${TEST_VIDEO}_tp_fp.p
+    
+    # Train/Eval SVM on the dataset generated from the above command
+    python svm_on_pre_logit.py train \
+        --pre_logit_files /home/zf/opt/drone-scalable-search/processed_dataset/stanford_campus/experiments/tiled_mobilenet_classification/2_more_test/${TEST_VIDEO}_tp_fp.p \
+        --test_ratio 0.3 \
+        --eval_every_iters=10
+    
+    # The above two commands are wrapped in scripts/jit_svm_on_stanford.sh
+    ```
+
 
 ## Tile-based experiments on Stanford with Mobilenet
 
