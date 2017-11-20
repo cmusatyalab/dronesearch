@@ -183,17 +183,19 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
 
 # Experiments for the Paper
 ## Early discard on Drone
-- [x] Filter accuracy on full resolution data
-- [ ] Tiled filter accuracy: per-frame and event-based
-- [ ] Speed and accuracy trade-off of tile size on drones
+- [x] Filter Precision-Recall curve on full resolution frames
+- [ ] Tiled filter Precision-Recall curve evaluated on individual frames
+- [ ] Speed vs accuracy trade-off varying tile size on drones on individual frames (MobileNet 13ms forward pass, batch 1 on jetson)
 - [ ] Event result accuracy with early discard, latency and b/w consumed
 ## Dynamic filter selection
-- [ ] Event result Accuracy, latency and b/w consumed
+- [ ] Speed and accuracy of dynamic filter selection evaluated on events
+- [ ] b/w consumed
 ## Runtime Specialization
-- [ ] Filter Accuracy improvements
-- [ ] Event result Accuracy, latency and b/w consumed
+- [ ] Accuracy improvements on different filters
+- [ ] Improvements on bandwidth and 
 ## Timely Reachback
 ## Different cases and Task
 - [x] A table for different tasks and dataset
 - [ ] Object Detection/Activity Recognition Accuracy for various task: These are the detectors running on the cloudlet, showing that current CV techniques can be helpful for search and rescue
 - [ ] Speed and event detection accuracy of these detectors on drone platforms: Showcase such detectors cannot be simply moved to execute on the mobile h/w (or is a table of execution time enough?)
+- [ ] B/W consumption comparison with naively transmitting all videos back to cloudlet
