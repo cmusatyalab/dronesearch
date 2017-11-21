@@ -395,7 +395,7 @@ def get_continuous_sequence(frameids):
     return event_lengths
 
 
-def _group_annotation_by_unique_track_ids(annotations):
+def group_annotation_by_unique_track_ids(annotations):
     """Group annotations by unique track ids. track_id in stanford dataset is only
     unique within a video. This method create unique_track_id by combine it
     with video_id.
@@ -412,23 +412,38 @@ def _group_annotation_by_unique_track_ids(annotations):
     return track_annotations_grp
 
 
-def _filter_annotation_by_label(annotations):
+def filter_annotation_by_label(annotations):
     mask = get_positive_annotation_mask(annotations)
     target_annotations = annotations[mask].copy()
     return target_annotations
 
 
-def _filter_annotation_by_video_name(annotations, video_list_file_path):
+def filter_annotation_by_video_name(annotations, video_list_file_path):
     print('filter annotation by videos specified by {}'.format(
         video_list_file_path))
-    with open(video_list_file_path, 'r') as f:
-        video_names = f.read().splitlines()
-        videoids = [
-            video_name.replace('_video.mov', '') for video_name in video_names
-        ]
-        # filter by video name
-        annotations = annotations[annotations['videoid'].isin(videoids)]
+    videoids = io_util.load_stanford_video_ids_from_file(video_list_file_path)
+    assert len(videoids) > 0
+    # filter by video name
+    annotations = annotations[annotations['videoid'].isin(videoids)]
     return annotations
+
+
+def print_video_id_with_car_events(annotation_dir):
+    """Print car events stats in the stanford dataset.
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+    annotations = io_util.load_stanford_campus_annotation(annotation_dir)
+    annotations = filter_annotation_by_label(annotations)
+    video_ids = list(set(annotations['videoid']))
+    video_ids.sort()
+    print('There are {} videos with car events.'.format(len(video_ids)))
+    print(json.dumps(video_ids, indent=4))
 
 
 def print_car_event_stats(annotation_dir, video_list_file_path=None):
@@ -443,10 +458,10 @@ def print_car_event_stats(annotation_dir, video_list_file_path=None):
     """
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
-        annotations = _filter_annotation_by_video_name(annotations,
+        annotations = filter_annotation_by_video_name(annotations,
                                                        video_list_file_path)
-    annotations = _filter_annotation_by_label(annotations)
-    track_annotations_grp = _group_annotation_by_unique_track_ids(annotations)
+    annotations = filter_annotation_by_label(annotations)
+    track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
     # key: video, value: dict of {track_id: list of event lengths}
     video_to_events = collections.defaultdict(dict)
     video_to_events_length = collections.defaultdict(dict)
@@ -493,11 +508,11 @@ def store_positive_frame_id_by_video_to_redis(annotation_dir,
     """
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
-        annotations = _filter_annotation_by_video_name(annotations,
+        annotations = filter_annotation_by_video_name(annotations,
                                                        video_list_file_path)
     r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
-    annotations = _filter_annotation_by_label(annotations)
-    track_annotations_grp = _group_annotation_by_unique_track_ids(annotations)
+    annotations = filter_annotation_by_label(annotations)
+    track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
     video_to_frame_ids = collections.defaultdict(set)
     for track_id, track_annotations in track_annotations_grp:
         print('analyzing track: {}'.format(track_id))
@@ -519,6 +534,7 @@ def store_positive_frame_id_by_video_to_redis(annotation_dir,
 
 def store_annotation_by_frame_id_to_redis(annotation_dir,
                                           redis_db,
+                                          redis_port=6379,
                                           video_list_file_path=None):
     """Store annotation by frame id to redis.
 
@@ -531,10 +547,10 @@ def store_annotation_by_frame_id_to_redis(annotation_dir,
     """
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
-        annotations = _filter_annotation_by_video_name(annotations,
+        annotations = filter_annotation_by_video_name(annotations,
                                                        video_list_file_path)
-    r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
-    annotations = _filter_annotation_by_label(annotations)
+    r_server = redis.StrictRedis(host='localhost', port=redis_port, db=redis_db)
+    annotations = filter_annotation_by_label(annotations)
     total_rows = annotations.shape[0]
     current_rows = 0
     for _, image_annotation in annotations.iterrows():
@@ -546,8 +562,9 @@ def store_annotation_by_frame_id_to_redis(annotation_dir,
             image_annotation['frameid'])
         r_server.rpush(frame_id, json.dumps((xmin, ymin, xmax, ymax)))
         current_rows += 1
-        if current_rows % 100:
+        if current_rows % 100 == 0:
             print('finished [{}/{}]'.format(current_rows, total_rows))
+    print('finished [{}/{}]'.format(current_rows, total_rows))
 
 
 if __name__ == '__main__':

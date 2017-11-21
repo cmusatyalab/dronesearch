@@ -119,6 +119,28 @@ def load_stanford_campus_annotation(annotation_dir):
         annotation_dir, parse_vatic_annotation_file)
 
 
+def load_stanford_video_ids_from_file(video_list_file_path):
+    """Load video ids from video list file. The file has video path (with
+_video.move) at each line of its content
+
+    Args:
+      video_list_file_path: 
+
+    Returns:
+
+    """
+    with open(video_list_file_path, 'r') as f:
+        video_names = f.read().splitlines()
+    videoids = [
+        video_name.replace('_video.mov', '') for video_name in video_names
+    ]
+    return videoids
+
+
+def stanford_video_id_to_frame_sequence_dir(video_id):
+    return '{}_video.mov'.format(video_id)
+
+
 def parse_vatic_annotation_file(file_path):
     print("parsing {}".format(file_path))
     annotations = pd.read_csv(file_path,

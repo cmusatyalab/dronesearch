@@ -141,27 +141,35 @@ def _get_prediction_results(imageid, slice_annotations, tile_coords, redis_db):
 
 def print_metrics_on_videos(image_dir, annotation_dir, video_list_file_path,
                             redis_db):
-    # image dir should be just the sliced test images
-    dataset = 'stanford'
-    slice_annotations = (
-        annotation.SliceAnnotationsFactory.get_annotations_for_slices(
-            dataset, image_dir, annotation_dir))
+    # # image dir should be just the sliced test images
+    # dataset = 'stanford'
+    # slice_annotations = (
+    #     annotation.SliceAnnotationsFactory.get_annotations_for_slices(
+    #         dataset, image_dir, annotation_dir))
 
-    with open(video_list_file_path, 'r') as f:
-        video_names = f.read().splitlines()
-    videoids = [
-        video_name.replace('_video.mov', '') for video_name in video_names
-    ]
+    # with open(video_list_file_path, 'r') as f:
+    #     video_names = f.read().splitlines()
+    # videoids = [
+    #     video_name.replace('_video.mov', '') for video_name in video_names
+    # ]
 
-    # filter by video name
-    annotations = slice_annotations.annotations
-    annotations = annotations[annotations['videoid'].isin(videoids)]
+    # # filter by video name
+    # annotations = slice_annotations.annotations
+    # annotations = annotations[annotations['videoid'].isin(videoids)]
 
-    # filter by label
-    mask = annotation.get_positive_annotation_mask(annotations)
-    target_annotations = annotations[mask].copy()
+    # # filter by label
+    # mask = annotation.get_positive_annotation_mask(annotations)
+    # target_annotations = annotations[mask].copy()
 
-    track_annotations_grp = target_annotations.groupby(['trackid'])
+    # track_annotations_grp = target_annotations.groupby(['trackid'])
+
+    annotations = io_util.load_stanford_campus_annotation(annotation_dir)
+    if video_list_file_path:
+        annotations = annotation.filter_annotation_by_video_name(annotations,
+                                                       video_list_file_path)
+    annotations = annotation.filter_annotation_by_label(annotations)
+    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(annotations)
+
     detected_tracks = {}
     all_tracks = []
     for track_id, track_annotations in track_annotations_grp:
