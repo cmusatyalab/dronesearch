@@ -521,9 +521,25 @@ def split_train_test(data_list_file, output_dir, test_percentage=0.1):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    io_util.write_list_to_file(train_list,
-                               os.path.join(output_dir, 'train.txt'))
+    io_util.write_list_to_file(train_list, os.path.join(
+        output_dir, 'train.txt'))
     io_util.write_list_to_file(test_list, os.path.join(output_dir, 'test.txt'))
+
+
+def rename_okutama_video_file_to_match_id(video_dir):
+    """Rename okutama video files to match their ids in the annotation.
+    e.g.
+    Drone1_Morning_1.1.10.mp4 --> 1.1.10.
+    """
+    video_file_names = os.listdir(video_dir)
+    for video_file_name in video_file_names:
+        if '_' not in video_file_name:
+            raise ValueError(
+                'Wrong file name format: {}'.format(video_file_name))
+        file_name_without_ext = os.path.splitext(video_file_name)[0]
+        output_file_name = file_name_without_ext.split('_')[2]
+        os.rename(os.path.join(video_dir, video_file_name),
+                  os.path.join(video_dir, output_file_name))
 
 
 if __name__ == "__main__":

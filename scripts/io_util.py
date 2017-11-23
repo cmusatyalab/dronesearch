@@ -5,6 +5,7 @@ import glob
 import math
 import numpy as np
 import os
+import functools
 
 import pandas as pd
 
@@ -63,19 +64,25 @@ def rectify_box(xcenter, ycenter, width, height, angle):
     :return:
     """
     import cv2
-    radian_angle = math.pi * float(angle) / 180.0 if angle > 0 else math.pi + math.pi * (180.0 - float(angle)) / 180.0
-    forward_midpoint = (xcenter + math.cos(radian_angle) * width, ycenter + math.sin(radian_angle) * width)
-    backward_midpoint = (xcenter - math.cos(radian_angle) * width, ycenter - math.sin(radian_angle) * width)
-    upward_midpoint = (xcenter - math.sin(radian_angle) * height, ycenter + math.cos(radian_angle) * height)
-    downward_midpoint = (xcenter + math.sin(radian_angle) * height, ycenter - math.cos(radian_angle) * height)
-    upper_right_corner = (
-        upward_midpoint[0] + forward_midpoint[0] - xcenter, upward_midpoint[1] + forward_midpoint[1] - ycenter)
-    upper_left_corner = (
-        upward_midpoint[0] + backward_midpoint[0] - xcenter, upward_midpoint[1] + backward_midpoint[1] - ycenter)
-    lower_left_corner = (
-        downward_midpoint[0] + backward_midpoint[0] - xcenter, downward_midpoint[1] + backward_midpoint[1] - ycenter)
-    lower_right_corner = (
-        downward_midpoint[0] + forward_midpoint[0] - xcenter, downward_midpoint[1] + forward_midpoint[1] - ycenter)
+    radian_angle = math.pi * float(
+        angle) / 180.0 if angle > 0 else math.pi + math.pi * (
+            180.0 - float(angle)) / 180.0
+    forward_midpoint = (xcenter + math.cos(radian_angle) * width,
+                        ycenter + math.sin(radian_angle) * width)
+    backward_midpoint = (xcenter - math.cos(radian_angle) * width,
+                         ycenter - math.sin(radian_angle) * width)
+    upward_midpoint = (xcenter - math.sin(radian_angle) * height,
+                       ycenter + math.cos(radian_angle) * height)
+    downward_midpoint = (xcenter + math.sin(radian_angle) * height,
+                         ycenter - math.cos(radian_angle) * height)
+    upper_right_corner = (upward_midpoint[0] + forward_midpoint[0] - xcenter,
+                          upward_midpoint[1] + forward_midpoint[1] - ycenter)
+    upper_left_corner = (upward_midpoint[0] + backward_midpoint[0] - xcenter,
+                         upward_midpoint[1] + backward_midpoint[1] - ycenter)
+    lower_left_corner = (downward_midpoint[0] + backward_midpoint[0] - xcenter,
+                         downward_midpoint[1] + backward_midpoint[1] - ycenter)
+    lower_right_corner = (downward_midpoint[0] + forward_midpoint[0] - xcenter,
+                          downward_midpoint[1] + forward_midpoint[1] - ycenter)
     points = np.array([
         [upper_left_corner],
         [upper_right_corner],
@@ -109,14 +116,26 @@ def load_annotation_from_dir(annotation_dir, parse_func):
 
 def load_munich_annotation(annotation_dir):
     """Load all munich annotations into a single data frame."""
-    return load_annotation_from_dir(
-        annotation_dir, parse_munich_annotation_file)
+    return load_annotation_from_dir(annotation_dir,
+                                    parse_munich_annotation_file)
 
 
 def load_stanford_campus_annotation(annotation_dir):
     """Load all stanford campus annotations into a single data frame."""
-    return load_annotation_from_dir(
-        annotation_dir, parse_vatic_annotation_file)
+    return load_annotation_from_dir(annotation_dir,
+                                    parse_vatic_annotation_file)
+
+
+def load_okutama_annotation(annotation_dir):
+    """Load all stanford campus annotations into a single data frame."""
+    column_names = [
+        'trackid', 'xmin', 'ymin', 'xmax', 'ymax', 'frameid', 'lost',
+        'occluded', 'generated', 'label', 'action'
+    ]
+    return load_annotation_from_dir(annotation_dir,
+                                    functools.partial(
+                                        parse_vatic_annotation_file,
+                                        column_names=column_names))
 
 
 def load_stanford_video_ids_from_file(video_list_file_path):
@@ -141,14 +160,15 @@ def stanford_video_id_to_frame_sequence_dir(video_id):
     return '{}_video.mov'.format(video_id)
 
 
-def parse_vatic_annotation_file(file_path):
+def parse_vatic_annotation_file(file_path,
+                                column_names=[
+                                    'trackid', 'xmin', 'ymin', 'xmax', 'ymax',
+                                    'frameid', 'lost', 'occluded', 'generated',
+                                    'label'
+                                ]):
     print("parsing {}".format(file_path))
-    annotations = pd.read_csv(file_path,
-                              sep=' ',
-                              header=None,
-                              names=['trackid', 'xmin', 'ymin', 'xmax',
-                                     'ymax', 'frameid', 'lost', 'occluded',
-                                     'generated', 'label'])
+    annotations = pd.read_csv(
+        file_path, sep=' ', header=None, names=column_names)
     videoid = os.path.splitext(os.path.basename(file_path))[0]
     videoid = videoid.replace('_annotations', '')
     annotations['videoid'] = videoid
@@ -164,8 +184,13 @@ def parse_munich_annotation_file(file_path):
     """
     print("parsing {}".format(file_path))
     imageid = os.path.splitext(os.path.basename(file_path))[0]
-    annotations = pd.read_csv(file_path, sep=' ', header=None,
-                              names=['unused', 'label', 'xcenter', 'ycenter', 'width', 'height', 'angle'])
+    annotations = pd.read_csv(
+        file_path,
+        sep=' ',
+        header=None,
+        names=[
+            'unused', 'label', 'xcenter', 'ycenter', 'width', 'height', 'angle'
+        ])
     annotations['imageid'] = imageid
     annotations.drop(['unused'], axis=1)
 
@@ -177,7 +202,9 @@ def parse_munich_annotation_file(file_path):
     # need to transform them into bounding rects to follow object detection ground truth convention
     # note these annotation may go beyond image resolution due to rectification
     for index, row in annotations.iterrows():
-        xmin, ymin, xmax, ymax = rectify_box(row['xcenter'], row['ycenter'], row['width'], row['height'], row['angle'])
+        xmin, ymin, xmax, ymax = rectify_box(row['xcenter'], row['ycenter'],
+                                             row['width'], row['height'],
+                                             row['angle'])
         annotations.loc[index, 'xmin'] = xmin
         annotations.loc[index, 'ymin'] = ymin
         annotations.loc[index, 'xmax'] = xmax
@@ -200,5 +227,6 @@ def flatten_directory_with_symlink(input_dir, output_dir, followlinks):
             dst_filepath = os.path.join(output_dir, dst_relpath)
             print("symlink {} -> {}".format(dst_filepath, src_filepath))
             os.symlink(src_filepath, dst_filepath)
+
 
 # parse_annotation_file('nexus/video1/annotations.txt')

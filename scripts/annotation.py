@@ -18,10 +18,10 @@ import io_util
 import redis
 
 
-def get_positive_annotation_mask(annotations):
+def get_positive_annotation_mask(annotations, labels=['Car', 'Bus']):
     """Car/NoCar annotation pandas dataframe mask."""
     lost_mask = (annotations['lost'] == 0)
-    label_mask = annotations['label'].isin(['Car', 'Bus'])
+    label_mask = annotations['label'].isin(labels)
     mask = label_mask & lost_mask
     return mask
 
@@ -412,8 +412,8 @@ def group_annotation_by_unique_track_ids(annotations):
     return track_annotations_grp
 
 
-def filter_annotation_by_label(annotations):
-    mask = get_positive_annotation_mask(annotations)
+def filter_annotation_by_label(annotations, labels=['Car', 'Bus']):
+    mask = get_positive_annotation_mask(annotations, labels=labels)
     target_annotations = annotations[mask].copy()
     return target_annotations
 
@@ -459,7 +459,7 @@ def print_car_event_stats(annotation_dir, video_list_file_path=None):
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
         annotations = filter_annotation_by_video_name(annotations,
-                                                       video_list_file_path)
+                                                      video_list_file_path)
     annotations = filter_annotation_by_label(annotations)
     track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
     # key: video, value: dict of {track_id: list of event lengths}
@@ -509,7 +509,7 @@ def store_positive_frame_id_by_video_to_redis(annotation_dir,
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
         annotations = filter_annotation_by_video_name(annotations,
-                                                       video_list_file_path)
+                                                      video_list_file_path)
     r_server = redis.StrictRedis(host='localhost', port=6379, db=redis_db)
     annotations = filter_annotation_by_label(annotations)
     track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
@@ -548,8 +548,9 @@ def store_annotation_by_frame_id_to_redis(annotation_dir,
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
     if video_list_file_path:
         annotations = filter_annotation_by_video_name(annotations,
-                                                       video_list_file_path)
-    r_server = redis.StrictRedis(host='localhost', port=redis_port, db=redis_db)
+                                                      video_list_file_path)
+    r_server = redis.StrictRedis(
+        host='localhost', port=redis_port, db=redis_db)
     annotations = filter_annotation_by_label(annotations)
     total_rows = annotations.shape[0]
     current_rows = 0
@@ -565,6 +566,113 @@ def store_annotation_by_frame_id_to_redis(annotation_dir,
         if current_rows % 100 == 0:
             print('finished [{}/{}]'.format(current_rows, total_rows))
     print('finished [{}/{}]'.format(current_rows, total_rows))
+
+
+def print_okutama_person_events(annotation_dir):
+    """Print car events stats in the stanford dataset.
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+    video_to_frame_num = {
+        '1.1.10': 2630,
+        '1.1.11': 604,
+        '1.1.1': 2272,
+        '1.1.2': 2220,
+        '1.1.3': 1966,
+        '1.1.4': 1950,
+        '1.1.5': 1560,
+        '1.1.6': 2381,
+        '1.1.7': 2519,
+        '1.2.11': 1810,
+        '1.2.2': 1098,
+        '1.2.4': 1973,
+        '1.2.5': 1026,
+        '1.2.6': 1014,
+        '1.2.7': 1837,
+        '1.2.8': 1541,
+        '1.2.9': 1373,
+        '2.1.10': 2713,
+        '2.1.1': 1235,
+        '2.1.2': 1398,
+        '2.1.3': 2878,
+        '2.1.4': 2108,
+        '2.1.5': 1825,
+        '2.1.6': 2519,
+        '2.1.7': 2514,
+        '2.2.11': 1285,
+        '2.2.2': 1466,
+        '2.2.4': 2029,
+        '2.2.5': 1042,
+        '2.2.6': 2254,
+        '2.2.7': 1530,
+        '2.2.8': 1770,
+        '2.2.9': 1502
+    }
+
+    annotations = io_util.load_okutama_annotation(annotation_dir)
+    annotations = filter_annotation_by_label(annotations, labels=['Person'])
+    video_to_event_frames = collections.defaultdict(dict)
+    video_ids = list(set(annotations['videoid']))
+    for video_id in video_ids:
+        video_annotations = annotations[annotations['videoid'] == video_id]
+        video_positive_frame_ids = list(set(video_annotations['frameid']))
+        total_frame_num = video_to_frame_num[video_id]
+        video_to_event_frames[video_id] = {
+            'positive_frame_num':
+            len(video_positive_frame_ids),
+            'negative_frame_num':
+            max(0, total_frame_num - len(video_positive_frame_ids)),
+            'total_frame_num':
+            total_frame_num,
+            'positive_frame_percent':
+            len(video_positive_frame_ids) * 1.0 / total_frame_num,
+        }
+    print('There are {} videos with person events.'.format(len(video_ids)))
+    print(json.dumps(video_to_event_frames, indent=4))
+
+    video_positive_nums = [
+        video_to_event_frames[video_id]['positive_frame_num'] for video_id
+        in video_to_event_frames.keys()]
+    video_negative_nums = [
+        video_to_event_frames[video_id]['negative_frame_num'] for video_id
+        in video_to_event_frames.keys()]
+    print('total positive frame num: {}'.format(np.sum(video_positive_nums)))
+    print('total negative frame num: {}'.format(np.sum(video_negative_nums)))
+
+    print('printing train and test set stats...')
+    train_videos = {
+        '1.1.3', '1.1.2', '1.1.5', '1.1.4', '2.2.7', '2.1.7', '2.1.4',
+        '2.2.11', '1.1.10'
+    }
+    test_videos = {'2.2.2', '2.2.4', '1.1.7'}
+    video_groups = {'train': train_videos, 'test': test_videos}
+    for group_name, video_ids in video_groups.items():
+        print(group_name)
+        group_video_positive_nums = [
+            video_to_event_frames[video_id]['positive_frame_num']
+            for video_id in video_ids
+        ]
+        group_video_negative_nums = [
+            video_to_event_frames[video_id]['negative_frame_num']
+            for video_id in video_ids
+        ]
+        group_video_total_nums = [
+            video_to_event_frames[video_id]['total_frame_num']
+            for video_id in video_ids
+        ]
+        print('The minimum positive frames a video contains: {}'.format(
+            np.min(group_video_positive_nums)))
+        print('The minimum negative frames a video contains: {}'.format(
+            np.min(group_video_negative_nums)))
+        print('Total positive frames: {}'.format(
+            np.sum(group_video_positive_nums)))
+        print('Total negative frames: {}'.format(
+            np.sum(group_video_negative_nums)))
 
 
 if __name__ == '__main__':
