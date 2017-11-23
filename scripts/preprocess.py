@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 
 from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+    unicode_literals)
 
+import cPickle as pickle
+import collections
+import cv2
 import glob
-import math
 import os
 import random
+import math
+import numpy as np
 import shutil
 
-import numpy as np
 import annotation
-import cv2
 import fire
-
 import io_util
 
 
@@ -538,8 +539,85 @@ def rename_okutama_video_file_to_match_id(video_dir):
                 'Wrong file name format: {}'.format(video_file_name))
         file_name_without_ext = os.path.splitext(video_file_name)[0]
         output_file_name = file_name_without_ext.split('_')[2]
-        os.rename(os.path.join(video_dir, video_file_name),
-                  os.path.join(video_dir, output_file_name))
+        os.rename(
+            os.path.join(video_dir, video_file_name),
+            os.path.join(video_dir, output_file_name))
+
+
+def resize_okutama_frame_sequence(video_dir,
+                                  output_width=3808,
+                                  output_height=2240):
+    """Resize okutama frame sequence in place so that they are multiples of 224.
+
+    """
+    video_file_paths = glob.glob(os.path.join(video_dir, '*', '*'))
+    for video_file_path in video_file_paths:
+        im = cv2.imread(video_file_path)
+        resized_im = cv2.resize(im, (output_width, output_height))
+        cv2.imwrite(video_file_path, resized_im)
+
+
+OKUTAMA_TRAIN_VIDEOS = [
+    '1.1.3', '1.1.2', '1.1.5', '1.1.4', '2.2.7', '2.1.7', '2.1.4', '2.2.11',
+    '1.1.10'
+]
+OKUTAMA_TEST_VIDEOS = ['2.2.2', '2.2.4', '1.1.7']
+
+
+def sample_okutama_frames(tile_classification_annotation_dir,
+                          sample_num_per_video,
+                          output_dir,
+                          split_name='train'):
+    """
+
+    Args:
+      tile_classification_annotation_dir: 
+      sample_num_per_video: # of samples per class. 2x this number for total samples for classification.
+      output_dir: 
+      split_name:  (Default value = 'train')
+
+    Returns:
+
+    """
+
+    assert split_name in ['train', 'test']
+
+    if split_name == 'train':
+        video_ids = OKUTAMA_TRAIN_VIDEOS
+    else:
+        video_ids = OKUTAMA_TEST_VIDEOS
+
+    print('loading tile annotations from {}'.format(
+        tile_classification_annotation_dir))
+
+    total_sample_ids = collections.defaultdict(list)
+    for video_id in video_ids:
+        image_id_to_classification_label = (
+            annotation.load_tile_classification_annotation(
+                tile_classification_annotation_dir, video_ids=[video_id]))
+        positive_image_ids = ([
+            k for k, v in image_id_to_classification_label.items() if v
+        ])
+        negative_image_ids = ([
+            k for k, v in image_id_to_classification_label.items() if not v
+        ])
+        print(
+            '{} total tiles: {}, total positive images: {}, total negative images {}'.
+            format(video_id,
+                   len(positive_image_ids) + len(negative_image_ids),
+                   len(positive_image_ids), len(negative_image_ids)))
+
+        random.shuffle(positive_image_ids)
+        random.shuffle(negative_image_ids)
+        total_sample_ids['positive'].extend(
+            positive_image_ids[:sample_num_per_video])
+        total_sample_ids['negative'].extend(
+            negative_image_ids[:sample_num_per_video])
+
+    io_util.create_dir_if_not_exist(output_dir)
+    output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))
+    with open(output_file_path, 'wb') as f:
+        pickle.dump(total_sample_ids, f)
 
 
 if __name__ == "__main__":
