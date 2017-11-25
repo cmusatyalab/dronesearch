@@ -61,12 +61,6 @@ def load_labels(label_file):
     return label
 
 
-def load_image_into_numpy_array(image):
-    (im_width, im_height) = image.size
-    return np.array(image.getdata()).reshape((im_height, im_width, 3)).astype(
-        np.uint8)
-
-
 if __name__ == "__main__":
     model_file = None
     label_file = "tensorflow/examples/label_image/data/imagenet_slim_labels.txt"
@@ -142,7 +136,7 @@ if __name__ == "__main__":
             for image_path in TEST_IMAGE_PATHS:
                 tf.logging.info(image_path)
                 image = Image.open(image_path)
-                image_np = load_image_into_numpy_array(image)
+                image_np = np.asarray(image)
                 # Actual detection.
                 st = time.time()
                 normalized_image = sess.run(normalized, {
