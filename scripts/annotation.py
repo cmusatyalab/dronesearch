@@ -4,29 +4,25 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import abc
+import cPickle as pickle
 import collections
 import cv2
+import functools
 import glob
 import itertools
 import json
 import numpy as np
 import operator
 import os
-import cPickle as pickle
 
 import fire
 import io_util
 import redis
-
-from annotation_stats import (okutama_video_to_frame_num,
-                              okutama_original_height,
-                              okutama_original_width,
-                              okutama_train_videos,
-                              okutama_test_videos,
-                              stanford_video_to_frame_num,
-                              stanford_test_videos,
-                              stanford_train_videos
-                              )
+from annotation_stats import (
+    okutama_test_videos, okutama_train_videos,
+    okutama_video_id_to_original_resolution, okutama_video_to_frame_num,
+    stanford_test_videos, stanford_train_videos, stanford_video_to_frame_num,
+    stanford_video_id_to_original_resolution)
 
 
 def get_positive_annotation_mask(annotations, labels=['Car', 'Bus']):
@@ -624,8 +620,10 @@ def print_stanford_car_events(annotation_dir):
     print('total negative frame num: {}'.format(np.sum(video_negative_nums)))
 
     print('printing train and test set stats...')
-    video_groups = {'train': stanford_train_videos,
-                    'test': stanford_test_videos}
+    video_groups = {
+        'train': stanford_train_videos,
+        'test': stanford_test_videos
+    }
     for group_name, video_ids in video_groups.items():
         print(group_name)
         group_video_positive_nums = [
@@ -719,62 +717,66 @@ def print_okutama_person_events(annotation_dir):
             np.sum(group_video_negative_nums)))
 
 
-def get_tile_classification_annotation(annotation_dir,
-                                       image_width,
-                                       image_height,
-                                       tile_width,
-                                       tile_height,
-                                       output_dir,
-                                       video_ids=[
-                                           '1.1.3', '1.1.2', '1.1.5', '1.1.4',
-                                           '2.2.7', '2.1.7', '2.1.4', '2.2.11',
-                                           '1.1.10', '2.2.2', '2.2.4', '1.1.7'
-                                       ]):
-    """Get tile classification annotation.
+def _initialize_tile_id_to_classification_label(
+        tile_id_to_classification_label, grid_w, grid_h, image_id):
+    # initialize all tiles to false by default
+    for grid_x in range(grid_w):
+        for grid_y in range(grid_h):
+            tile_id = str(image_id + '_{}_{}'.format(grid_x, grid_y))
+            tile_id_to_classification_label[tile_id] = False
 
-    Args:
-      annotation_dir: dir with all annotations
-      tile_width: 
-      tile_height: 
-      output_dir: generated classification label output dir
 
-    Returns:
-
-    """
-    grid_h, grid_w = int(
-        image_height / tile_height), int(image_width / tile_width)
-    print('Each image is divided into {}x{} tiles'.format(grid_w, grid_h))
-    annotations = io_util.load_okutama_annotation(annotation_dir)
-    annotations = filter_annotation_by_label(annotations, labels=['Person'])
-    annotations = annotations[annotations['videoid'].isin(video_ids)]
-    annotations[
-        'imageid'] = annotations['videoid'] + '_' + annotations['frameid'].astype(
-            str)
+def _get_resized_annotation(image_annotation, original_image_resolution,
+                            image_resolution):
+    (original_width, original_height) = original_image_resolution
+    (image_width, image_height) = image_resolution
+    # original annotation before resizing
+    xmin, ymin, xmax, ymax = image_annotation["xmin"], \
+                             image_annotation["ymin"], \
+                             image_annotation["xmax"], \
+                             image_annotation["ymax"]
 
     # convert xmin, ymin, xmax, ymax to correct values after resize
-    resize_height_ratio = image_height / okutama_original_height
-    resize_width_ratio = image_width / okutama_original_width
-    annotations['xmin'] = annotations['xmin'] * resize_width_ratio
-    annotations['xmax'] = annotations['xmax'] * resize_width_ratio
-    annotations['ymin'] = annotations['ymin'] * resize_height_ratio
-    annotations['ymax'] = annotations['ymax'] * resize_height_ratio
+    resize_height_ratio = image_height / original_height
+    resize_width_ratio = image_width / original_width
+    xmin = xmin * resize_width_ratio
+    xmax = xmax * resize_width_ratio
+    ymin = ymin * resize_height_ratio
+    ymax = ymax * resize_height_ratio
+    return xmin, ymin, xmax, ymax
+
+
+def get_tile_classification_annotation(
+        annotation_dir, func_load_annotation_dir,
+        video_id_to_original_resolution, video_id_to_frame_num, labels,
+        image_width, image_height, tile_width, tile_height, output_dir,
+        video_ids):
+    assert video_id_to_frame_num
+    assert labels
+
+    grid_h, grid_w = int(image_height / tile_height), int(
+        image_width / tile_width)
+    print('Each image is divided into {}x{} tiles'.format(grid_w, grid_h))
+
+    annotations = func_load_annotation_dir(annotation_dir)
+    annotations = filter_annotation_by_label(annotations, labels=labels)
+    annotations = annotations[annotations['videoid'].isin(video_ids)]
+    annotations['imageid'] = (
+        annotations['videoid'] + '_' + annotations['frameid'].astype(str))
 
     print('total {} annotations'.format(len(annotations)))
     io_util.create_dir_if_not_exist(output_dir)
     for video_id in video_ids:
         print('working on {}'.format(video_id))
-        image_id_to_classification_label = {}
-        frame_num = okutama_video_to_frame_num[video_id]
+        tile_id_to_classification_label = {}
+        frame_num = video_id_to_frame_num[video_id]
         positive_num = 0
         for frame_id in range(frame_num):
             image_id = video_id + '_' + str(frame_id)
             image_annotations = annotations[annotations['imageid'] == image_id]
 
-            # initialize all tiles to false by default
-            for grid_x in range(grid_w):
-                for grid_y in range(grid_h):
-                    tile_id = str(image_id + '_{}_{}'.format(grid_x, grid_y))
-                    image_id_to_classification_label[tile_id] = False
+            _initialize_tile_id_to_classification_label(
+                tile_id_to_classification_label, grid_w, grid_h, image_id)
 
             # save frame 0 for debugging
             if frame_id == 0:
@@ -782,11 +784,13 @@ def get_tile_classification_annotation(annotation_dir,
                     image_width, image_height, video_id, frame_id + 1))
 
             for _, image_annotation in image_annotations.iterrows():
-                # which cell does this annotation fall into
-                xmin, ymin, xmax, ymax = image_annotation["xmin"], \
-                    image_annotation["ymin"], \
-                    image_annotation["xmax"], \
-                    image_annotation["ymax"]
+                image_resolution = (image_width, image_height)
+                original_image_resolution = (
+                    video_id_to_original_resolution[video_id])
+                xmin, ymin, xmax, ymax = _get_resized_annotation(
+                    image_annotation, original_image_resolution,
+                    image_resolution)
+
                 # upper left, upper right, lower left, lower right
                 key_points = [(xmin, ymin), (xmax, ymin), (xmin, ymax), (xmax,
                                                                          ymax)]
@@ -806,8 +810,8 @@ def get_tile_classification_annotation(annotation_dir,
                     if is_small_bx_in_big_bx(roi, tile):
                         tile_id = str(
                             image_id + '_{}_{}'.format(grid_x, grid_y))
-                        if not image_id_to_classification_label[tile_id]:
-                            image_id_to_classification_label[tile_id] = True
+                        if not tile_id_to_classification_label[tile_id]:
+                            tile_id_to_classification_label[tile_id] = True
                             positive_num += 1
 
             if frame_id == 0:
@@ -817,17 +821,51 @@ def get_tile_classification_annotation(annotation_dir,
         print(
             'For {}, number of positives: {}, number of negatives: {}'.format(
                 video_id, positive_num, negative_num))
-        negative_num_in_lut = len([
-            k
-            for k, v in image_id_to_classification_label.items()
-            if not v
-        ])
-        assert negative_num == negative_num_in_lut, "Number of negative examples do not match!"
+        negative_num_in_lut = len(
+            [k for k, v in tile_id_to_classification_label.items() if not v])
+        assert negative_num == negative_num_in_lut, ('Number of negative'
+                                                     'examples do not match!')
 
         output_file_path = os.path.join(output_dir, '{}.pkl'.format(video_id))
         print('saving to {}'.format(output_file_path))
         with open(output_file_path, 'wb') as f:
-            pickle.dump(image_id_to_classification_label, f)
+            pickle.dump(tile_id_to_classification_label, f)
+
+
+def get_okutama_tile_classification_annotation(annotation_dir, image_width,
+                                               image_height, tile_width,
+                                               tile_height, output_dir):
+    return get_tile_classification_annotation(
+        annotation_dir=annotation_dir,
+        image_width=image_width,
+        image_height=image_height,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        output_dir=output_dir,
+        func_load_annotation_dir=io_util.load_okutama_annotation,
+        video_id_to_original_resolution=(
+            okutama_video_id_to_original_resolution),
+        video_id_to_frame_num=okutama_video_to_frame_num,
+        labels=['Person'],
+        video_ids=okutama_train_videos + okutama_test_videos)
+
+
+def get_stanford_tile_classification_annotation(annotation_dir, image_width,
+                                                image_height, tile_width,
+                                                tile_height, output_dir):
+    return get_tile_classification_annotation(
+        annotation_dir=annotation_dir,
+        image_width=image_width,
+        image_height=image_height,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        output_dir=output_dir,
+        func_load_annotation_dir=io_util.load_stanford_campus_annotation,
+        video_id_to_original_resolution=(
+            stanford_video_id_to_original_resolution),
+        video_id_to_frame_num=stanford_video_to_frame_num,
+        labels=['Car', 'Bus'],
+        video_ids=stanford_train_videos + stanford_test_videos)
 
 
 def load_tile_classification_annotation(tile_classification_annotation_dir,
