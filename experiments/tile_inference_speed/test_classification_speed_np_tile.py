@@ -37,6 +37,27 @@ def load_image_into_numpy_array(image):
         np.uint8)
 
 
+def _1d_to_2d_idx(idx, grid_w, grid_h):
+    h_idx = int(idx / grid_w)
+    v_idx = int(idx % grid_h)
+    return h_idx, v_idx
+
+
+def _batched_divide_to_tiles(im, grid_w, grid_h, tile_w, tile_h,
+                             allocated_tiles, start_idx, batch_size):
+    idx_1d = start_idx
+    for batch_idx in range(batch_size):
+        h_idx, v_idx = _1d_to_2d_idx(idx_1d, grid_w, grid_h)
+        tile_x = int(h_idx * tile_w)
+        tile_y = int(v_idx * tile_h)
+        current_tile = im[tile_y:tile_y + tile_h, tile_x:tile_x + tile_w]
+        allocated_tiles[batch_idx, :, :, :] = current_tile[:, :, :]
+        idx_1d += 1
+        if idx_1d >= grid_h * grid_w:
+            break
+    return batch_idx + 1, allocated_tiles
+
+
 def _divide_to_tiles(im, grid_w, grid_h, tile_w, tile_h, allocated_tiles):
     # assert (im_w % grid_w == 0), \
     #     "image width ({}) cannot be evenly divided to ({}) pieces".format(
@@ -131,7 +152,7 @@ if __name__ == "__main__":
     graph = load_graph(model_file)
 
     with graph.as_default():
-        input_image = tf.placeholder(tf.uint8, shape=[None, None, None, 3])
+        input_image = tf.placeholder(tf.uint8, shape=[None, None, 3])
         resized = tf.image.resize_images(
             input_image, [input_height * grid_h, input_width * grid_w],
             method=tf.image.ResizeMethod.BILINEAR)
@@ -150,19 +171,14 @@ if __name__ == "__main__":
     normalization_latencies = []
     tile_normalization_latencies = []
 
-    tiles = np.zeros(shape=(grid_w * grid_h, input_height, input_width, 3))
+    tiles = np.zeros(shape=(batch_size, input_height, input_width, 3))
     # use numpy for tiling
     with tf.Session(graph=graph) as sess:
         tf.logging.info('Start session')
-
         # warm up
-        image_np = (np.random.rand(batch_size, input_height, input_width, 3) *
-                    255).astype(np.uint8)
+        image_np = (np.random.rand(input_height * grid_h, input_width * grid_w,
+                                   3) * 255).astype(np.uint8)
         normalized_image = sess.run(normalized, {input_image: image_np})
-        results = sess.run(output_operation.outputs[0], {
-            input_operation.outputs[0]: normalized_image
-        })
-        results = np.squeeze(results)
         tf.logging.info('Finished warming up.')
 
         for _ in range(3):
@@ -172,38 +188,27 @@ if __name__ == "__main__":
                 image_np = np.asarray(image)
 
                 st = time.time()
-                normalized_image = sess.run(normalized, {input_image: tiles})
+                normalized_image = sess.run(normalized, {
+                    input_image: image_np
+                })
                 normalization_latencies.append(time.time() - st)
-
-                tiles = _divide_to_tiles(
-                    normalized_image,
-                    grid_w, grid_h,
-                    input_width,
-                    input_height,
-                    tiles)
-                tf.logging.info('GOt {} tiles.'.format(len(tiles)))
-                tile_normalization_latencies.append(time.time() - st)
 
                 processed_tiles_num = 0
                 while processed_tiles_num < grid_h * grid_w:
-                    batch_tiles = tiles[
-                        processed_tiles_num: processed_tiles_num + batch_size]
+                    filled_num, tiles = _batched_divide_to_tiles(
+                        normalized_image, grid_w, grid_h, input_width,
+                        input_height, tiles, processed_tiles_num, batch_size)
+                    tf.logging.info('Got {} tiles.'.format(len(tiles)))
+                    batch_tiles = tiles[:filled_num]
                     results = sess.run(output_operation.outputs[0], {
-                        input_operation.outputs[0]: normalized_image
+                        input_operation.outputs[0]: batch_tiles
                     })
                     results = np.squeeze(results)
-                    processed_tiles_num += batch_size
+                    processed_tiles_num += filled_num
 
                 latencies.append(time.time() - st)
 
     tf.logging.info('average latency: {:.1f}ms, std: {:.1f}ms'.format(
         np.mean(latencies) * 1000,
         np.std(latencies) * 1000))
-    tf.logging.info('normalization latency: {:.1f}ms, std: {:.1f}ms'.format(
-        np.mean(normalization_latencies) * 1000,
-        np.std(normalization_latencies) * 1000))
-    tf.logging.info(
-        'tile + normalization latency: {:.1f}ms, std: {:.1f}ms'.format(
-            np.mean(tile_normalization_latencies) * 1000,
-            np.std(tile_normalization_latencies) * 1000))
     tf.logging.info('latencies: {}'.format(latencies))
