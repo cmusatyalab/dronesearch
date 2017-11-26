@@ -18,42 +18,15 @@ import fire
 import io_util
 import redis
 
-okutama_video_to_frame_num = {
-    '1.1.10': 2630,
-    '1.1.11': 604,
-    '1.1.1': 2272,
-    '1.1.2': 2220,
-    '1.1.3': 1966,
-    '1.1.4': 1950,
-    '1.1.5': 1560,
-    '1.1.6': 2381,
-    '1.1.7': 2519,
-    '1.2.11': 1810,
-    '1.2.2': 1098,
-    '1.2.4': 1973,
-    '1.2.5': 1026,
-    '1.2.6': 1014,
-    '1.2.7': 1837,
-    '1.2.8': 1541,
-    '1.2.9': 1373,
-    '2.1.10': 2713,
-    '2.1.1': 1235,
-    '2.1.2': 1398,
-    '2.1.3': 2878,
-    '2.1.4': 2108,
-    '2.1.5': 1825,
-    '2.1.6': 2519,
-    '2.1.7': 2514,
-    '2.2.11': 1285,
-    '2.2.2': 1466,
-    '2.2.4': 2029,
-    '2.2.5': 1042,
-    '2.2.6': 2254,
-    '2.2.7': 1530,
-    '2.2.8': 1770,
-    '2.2.9': 1502
-}
-okutama_original_width, okutama_original_height = 3840, 2160
+from annotation_stats import (okutama_video_to_frame_num,
+                              okutama_original_height,
+                              okutama_original_width,
+                              okutama_train_videos,
+                              okutama_test_videos,
+                              stanford_video_to_frame_num,
+                              stanford_test_videos,
+                              stanford_train_videos
+                              )
 
 
 def get_positive_annotation_mask(annotations, labels=['Car', 'Bus']):
@@ -370,7 +343,7 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
 
     def get_tiles_contain_bounding_box(self, imageid, bx):
         """Return coordinates of the tiles that contain input bounding box.
-        
+
         The tile coordinate system is the same as opencv image coordinate
         system, which starts with (0,0) for the top-left corner. First element
         of coordinate is x-axis, with direction going to the right. The second
@@ -379,12 +352,12 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
         (0,0) | (1,0)
         -------------
         (0,1) | (1,1)
-        
+
         Args:
           imageid: Base image id. should be a value 'imageid' column when
           loaded annotations
           bx: Bounding box tuple in the form of (xmin, ymin, xmax, ymax).
-        
+
         Returns: A list of tile coordinates that overlap with this bounding
         box.
 
@@ -394,7 +367,7 @@ class StanfordCarSliceAnnotations(SliceAnnotations):
 
         Returns:
 
-        
+
         """
         grid_h, grid_w = self.get_grid_shape(imageid)
         slice_h, slice_w = self.get_slice_shape(imageid)
@@ -594,9 +567,9 @@ def store_annotation_by_frame_id_to_redis(annotation_dir,
     current_rows = 0
     for _, image_annotation in annotations.iterrows():
         xmin, ymin, xmax, ymax = image_annotation['xmin'], \
-                                 image_annotation['ymin'], \
-                                 image_annotation['xmax'], \
-                                 image_annotation['ymax']
+            image_annotation['ymin'], \
+            image_annotation['xmax'], \
+            image_annotation['ymax']
         frame_id = 'gt_' + image_annotation['videoid'] + '_' + str(
             image_annotation['frameid'])
         r_server.rpush(frame_id, json.dumps((xmin, ymin, xmax, ymax)))
@@ -604,6 +577,77 @@ def store_annotation_by_frame_id_to_redis(annotation_dir,
         if current_rows % 100 == 0:
             print('finished [{}/{}]'.format(current_rows, total_rows))
     print('finished [{}/{}]'.format(current_rows, total_rows))
+
+
+def print_stanford_car_events(annotation_dir):
+    """Print car events stats in the stanford dataset.
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+
+    annotations = io_util.load_stanford_campus_annotation(annotation_dir)
+    annotations = filter_annotation_by_label(
+        annotations, labels=['Car', 'Bus'])
+    video_to_event_frames = collections.defaultdict(dict)
+    video_ids = list(set(annotations['videoid']))
+    for video_id in video_ids:
+        video_annotations = annotations[annotations['videoid'] == video_id]
+        video_positive_frame_ids = list(set(video_annotations['frameid']))
+        total_frame_num = stanford_video_to_frame_num[video_id]
+        video_to_event_frames[video_id] = {
+            'positive_frame_num':
+            len(video_positive_frame_ids),
+            'negative_frame_num':
+            max(0, total_frame_num - len(video_positive_frame_ids)),
+            'total_frame_num':
+            total_frame_num,
+            'positive_frame_percent':
+            len(video_positive_frame_ids) * 1.0 / total_frame_num,
+        }
+    print('There are {} videos with car events.'.format(len(video_ids)))
+    print(json.dumps(video_to_event_frames, indent=4))
+
+    video_positive_nums = [
+        video_to_event_frames[video_id]['positive_frame_num']
+        for video_id in video_to_event_frames.keys()
+    ]
+    video_negative_nums = [
+        video_to_event_frames[video_id]['negative_frame_num']
+        for video_id in video_to_event_frames.keys()
+    ]
+    print('total positive frame num: {}'.format(np.sum(video_positive_nums)))
+    print('total negative frame num: {}'.format(np.sum(video_negative_nums)))
+
+    print('printing train and test set stats...')
+    video_groups = {'train': stanford_train_videos,
+                    'test': stanford_test_videos}
+    for group_name, video_ids in video_groups.items():
+        print(group_name)
+        group_video_positive_nums = [
+            video_to_event_frames[video_id]['positive_frame_num']
+            for video_id in video_ids
+        ]
+        group_video_negative_nums = [
+            video_to_event_frames[video_id]['negative_frame_num']
+            for video_id in video_ids
+        ]
+        group_video_total_nums = [
+            video_to_event_frames[video_id]['total_frame_num']
+            for video_id in video_ids
+        ]
+        print('The minimum positive frames a video contains: {}'.format(
+            np.min(group_video_positive_nums)))
+        print('The minimum negative frames a video contains: {}'.format(
+            np.min(group_video_negative_nums)))
+        print('Total positive frames: {}'.format(
+            np.sum(group_video_positive_nums)))
+        print('Total negative frames: {}'.format(
+            np.sum(group_video_negative_nums)))
 
 
 def print_okutama_person_events(annotation_dir):
@@ -624,7 +668,7 @@ def print_okutama_person_events(annotation_dir):
     for video_id in video_ids:
         video_annotations = annotations[annotations['videoid'] == video_id]
         video_positive_frame_ids = list(set(video_annotations['frameid']))
-        total_frame_num = video_to_frame_num[video_id]
+        total_frame_num = okutama_video_to_frame_num[video_id]
         video_to_event_frames[video_id] = {
             'positive_frame_num':
             len(video_positive_frame_ids),
@@ -650,12 +694,7 @@ def print_okutama_person_events(annotation_dir):
     print('total negative frame num: {}'.format(np.sum(video_negative_nums)))
 
     print('printing train and test set stats...')
-    train_videos = [
-        '1.1.3', '1.1.2', '1.1.5', '1.1.4', '2.2.7', '2.1.7', '2.1.4',
-        '2.2.11', '1.1.10'
-    ]
-    test_videos = ['2.2.2', '2.2.4', '1.1.7']
-    video_groups = {'train': train_videos, 'test': test_videos}
+    video_groups = {'train': okutama_train_videos, 'test': okutama_test_videos}
     for group_name, video_ids in video_groups.items():
         print(group_name)
         group_video_positive_nums = [
@@ -702,7 +741,8 @@ def get_tile_classification_annotation(annotation_dir,
     Returns:
 
     """
-    grid_h, grid_w = int(image_height / tile_height), int(image_width / tile_width)
+    grid_h, grid_w = int(
+        image_height / tile_height), int(image_width / tile_width)
     print('Each image is divided into {}x{} tiles'.format(grid_w, grid_h))
     annotations = io_util.load_okutama_annotation(annotation_dir)
     annotations = filter_annotation_by_label(annotations, labels=['Person'])

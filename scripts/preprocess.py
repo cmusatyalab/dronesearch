@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import (absolute_import, division, print_function,
-    unicode_literals)
+                        unicode_literals)
 
 import cPickle as pickle
 import collections
@@ -14,6 +14,7 @@ import numpy as np
 import shutil
 
 import annotation
+import annotation_stats
 import fire
 import io_util
 
@@ -544,6 +545,23 @@ def rename_okutama_video_file_to_match_id(video_dir):
             os.path.join(video_dir, output_file_name))
 
 
+def rename_stanford_image_dir_to_match_id(image_dir):
+    """Rename stanford image dir to match their ids in the annotation.
+    e.g.
+    gates_video0_video.mov --> gates_video0
+    """
+    video_file_names = os.listdir(image_dir)
+    for video_file_name in video_file_names:
+        if '_' not in video_file_name:
+            raise ValueError(
+                'Wrong file name format: {}'.format(video_file_name))
+        file_name_without_ext = os.path.splitext(video_file_name)[0]
+        output_file_name = '_'.join(file_name_without_ext.split('_')[:2])
+        os.rename(
+            os.path.join(image_dir, video_file_name),
+            os.path.join(image_dir, output_file_name))
+
+
 def resize_okutama_frame_sequence(video_dir,
                                   output_width=3808,
                                   output_height=2240):
@@ -557,6 +575,65 @@ def resize_okutama_frame_sequence(video_dir,
         cv2.imwrite(video_file_path, resized_im)
 
 
+def resize_stanford_frame_sequence_by_id(video_dir,
+                                         output_dir,
+                                         video_id,
+                                         long_edge=1792,
+                                         short_edge=896):
+    """Resize stanford frame sequence in place.
+
+    """
+    frame_sequence_name = video_id
+    print('working on {}'.format(video_id))
+    output_frame_sequence_dir = os.path.join(output_dir, frame_sequence_name)
+    io_util.create_dir_if_not_exist(output_frame_sequence_dir)
+    video_file_paths = glob.glob(
+        os.path.join(video_dir, frame_sequence_name, '*'))
+
+    for video_file_path in video_file_paths:
+        dst_file_path = os.path.join(output_frame_sequence_dir,
+                                     os.path.basename(video_file_path))
+        im = cv2.imread(video_file_path)
+        im_h, im_w, _ = im.shape
+        if im_h > im_w:
+            resized_im = cv2.resize(im, (short_edge, long_edge))
+        else:
+            resized_im = cv2.resize(im, (long_edge, short_edge))
+        cv2.imwrite(dst_file_path, resized_im)
+
+
+def resize_stanford_frame_sequence(video_dir,
+                                   output_dir,
+                                   split_name='test',
+                                   long_edge=1792,
+                                   short_edge=896):
+    """Resize stanford frame sequence in place.
+
+    """
+    if split_name == 'test':
+        frame_sequence_names = annotation_stats.stanford_test_videos
+    else:
+        frame_sequence_names = annotation_stats.stanford_train_videos
+
+    for frame_sequence_name in frame_sequence_names:
+        output_frame_sequence_dir = os.path.join(output_dir,
+                                                 frame_sequence_name)
+        io_util.create_dir_if_not_exist(output_frame_sequence_dir)
+        video_file_paths = glob.glob(
+            os.path.join(video_dir, frame_sequence_name, '*'))
+
+        for video_file_path in video_file_paths:
+            dst_file_path = os.path.join(output_frame_sequence_dir,
+                                         os.path.basename(video_file_path))
+            im = cv2.imread(video_file_path)
+            im_h, im_w, _ = im.shape
+            if im_h > im_w:
+                resized_im = cv2.resize(im, (short_edge, long_edge))
+            else:
+                resized_im = cv2.resize(im, (long_edge, short_edge))
+            cv2.imwrite(dst_file_path, resized_im)
+
+
 OKUTAMA_TRAIN_VIDEOS = [
     '1.1.3', '1.1.2', '1.1.5', '1.1.4', '2.2.7', '2.1.7', '2.1.4', '2.2.11',
     '1.1.10'
@@ -568,7 +645,9 @@ def sample_okutama_frames(tile_classification_annotation_dir,
                           sample_num_per_video,
                           output_dir,
                           split_name='train'):
-    """
+    """Sample okutama frame ids for train and test.
+
+    Only frame ids are sampled based on annotation, not real images.
 
     Args:
       tile_classification_annotation_dir: 
@@ -609,10 +688,16 @@ def sample_okutama_frames(tile_classification_annotation_dir,
 
         random.shuffle(positive_image_ids)
         random.shuffle(negative_image_ids)
+        sample_num_cur_video = np.min([
+            sample_num_per_video,
+            len(positive_image_ids),
+            len(negative_image_ids)
+        ])
+        print('sampling {} images for each class'.format(sample_num_cur_video))
         total_sample_ids['positive'].extend(
-            positive_image_ids[:sample_num_per_video])
+            positive_image_ids[:sample_num_cur_video])
         total_sample_ids['negative'].extend(
-            negative_image_ids[:sample_num_per_video])
+            negative_image_ids[:sample_num_cur_video])
 
     io_util.create_dir_if_not_exist(output_dir)
     output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))

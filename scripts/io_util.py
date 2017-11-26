@@ -126,16 +126,33 @@ def load_stanford_campus_annotation(annotation_dir):
                                     parse_vatic_annotation_file)
 
 
-def load_okutama_annotation(annotation_dir):
-    """Load all stanford campus annotations into a single data frame."""
-    column_names = [
+def parse_vatic_annotation_file(file_path,
+                                column_names=[
+                                    'trackid', 'xmin', 'ymin', 'xmax', 'ymax',
+                                    'frameid', 'lost', 'occluded', 'generated',
+                                    'label'
+                                ]):
+    print("parsing {}".format(file_path))
+    annotations = pd.read_csv(
+        file_path, sep=' ', header=None, names=column_names)
+    videoid = os.path.splitext(os.path.basename(file_path))[0]
+    videoid = videoid.replace('_annotations', '')
+    annotations['videoid'] = videoid
+    return annotations
+
+
+okutama_column_names = [
         'trackid', 'xmin', 'ymin', 'xmax', 'ymax', 'frameid', 'lost',
         'occluded', 'generated', 'label', 'action'
-    ]
-    return load_annotation_from_dir(annotation_dir,
-                                    functools.partial(
-                                        parse_vatic_annotation_file,
-                                        column_names=column_names))
+]
+parse_okutama_annotation_file = functools.partial(
+    parse_vatic_annotation_file, column_names=okutama_column_names)
+
+
+def load_okutama_annotation(annotation_dir):
+    """Load all stanford campus annotations into a single data frame."""
+    return load_annotation_from_dir(
+        annotation_dir, parse_okutama_annotation_file)
 
 
 def load_stanford_video_ids_from_file(video_list_file_path):
@@ -158,21 +175,6 @@ _video.move) at each line of its content
 
 def stanford_video_id_to_frame_sequence_dir(video_id):
     return '{}_video.mov'.format(video_id)
-
-
-def parse_vatic_annotation_file(file_path,
-                                column_names=[
-                                    'trackid', 'xmin', 'ymin', 'xmax', 'ymax',
-                                    'frameid', 'lost', 'occluded', 'generated',
-                                    'label'
-                                ]):
-    print("parsing {}".format(file_path))
-    annotations = pd.read_csv(
-        file_path, sep=' ', header=None, names=column_names)
-    videoid = os.path.splitext(os.path.basename(file_path))[0]
-    videoid = videoid.replace('_annotations', '')
-    annotations['videoid'] = videoid
-    return annotations
 
 
 def parse_munich_annotation_file(file_path):
