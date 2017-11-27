@@ -1,3 +1,8 @@
+"""Test tile classificaiton speed.
+
+Use tensorflow to divide tiles, construct graph, and run inference.
+Served as the onboard scripts to run on Jetson.
+"""
 from __future__ import absolute_import, division, print_function
 
 import argparse

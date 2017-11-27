@@ -545,6 +545,20 @@ def rename_okutama_video_file_to_match_id(video_dir):
             os.path.join(video_dir, output_file_name))
 
 
+def rename_elephant_video_file_to_match_id(video_dir):
+    """Rename elephant video files to match their ids.
+    e.g.
+    01.mp4 --> 01
+    """
+    video_file_names = os.listdir(video_dir)
+    for video_file_name in video_file_names:
+        file_name_without_ext = os.path.splitext(video_file_name)[0]
+        output_file_name = file_name_without_ext
+        os.rename(
+            os.path.join(video_dir, video_file_name),
+            os.path.join(video_dir, output_file_name))
+
+
 def rename_stanford_image_dir_to_match_id(image_dir):
     """Rename stanford image dir to match their ids in the annotation.
     e.g.

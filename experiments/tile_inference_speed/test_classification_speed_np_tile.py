@@ -1,3 +1,11 @@
+"""[Unused] Test classificaiton using numpy to divide tiles.
+
+Please use test_classification_speed.py in which tensorflow is used
+to divide tiles.
+
+This script is not deleted to serve as a reference on how to use
+numpy to divide tiles when memory are constraints.
+"""
 from __future__ import absolute_import, division, print_function
 
 import argparse
