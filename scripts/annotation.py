@@ -749,14 +749,32 @@ def _get_resized_annotation(image_annotation, original_image_resolution,
 def get_tile_classification_annotation(
         annotation_dir, func_load_annotation_dir,
         video_id_to_original_resolution, video_id_to_frame_num, labels,
-        image_width, image_height, tile_width, tile_height, output_dir,
-        video_ids):
+        resized_long_edge, resized_short_edge, tile_width, tile_height,
+        output_dir, video_ids):
+    """Get tile classificaiton annotation for resized images.
+
+    The aspect ratio doesn't matter.
+    resized_long_edge and resized_short_edge are treated as long edge and short edge.
+
+    Args:
+      annotation_dir: 
+      func_load_annotation_dir: 
+      video_id_to_original_resolution: 
+      video_id_to_frame_num: 
+      labels: 
+      resized_long_edge: 
+      resized_short_edge: 
+      tile_width: 
+      tile_height: 
+      output_dir: 
+      video_ids: 
+
+    Returns:
+
+    """
     assert video_id_to_frame_num
     assert labels
-
-    grid_h, grid_w = int(image_height / tile_height), int(
-        image_width / tile_width)
-    print('Each image is divided into {}x{} tiles'.format(grid_w, grid_h))
+    assert resized_long_edge >= resized_short_edge
 
     annotations = func_load_annotation_dir(annotation_dir)
     annotations = filter_annotation_by_label(annotations, labels=labels)
@@ -767,6 +785,20 @@ def get_tile_classification_annotation(
     print('total {} annotations'.format(len(annotations)))
     io_util.create_dir_if_not_exist(output_dir)
     for video_id in video_ids:
+        original_image_resolution = (video_id_to_original_resolution[video_id])
+        original_width, original_height = original_image_resolution
+        if original_width >= original_height:
+            resized_image_width = resized_long_edge
+            resized_image_height = resized_short_edge
+        else:
+            resized_image_width = resized_short_edge
+            resized_image_height = resized_long_edge
+
+        grid_h, grid_w = int(resized_image_height / tile_height), int(
+            resized_image_width / tile_width)
+        print('{} is divided into {}x{} tiles'.format(video_id, grid_w,
+                                                      grid_h))
+
         print('working on {}'.format(video_id))
         tile_id_to_classification_label = {}
         frame_num = video_id_to_frame_num[video_id]
@@ -778,27 +810,24 @@ def get_tile_classification_annotation(
             _initialize_tile_id_to_classification_label(
                 tile_id_to_classification_label, grid_w, grid_h, image_id)
 
-            # save frame 0 for debugging
-            if frame_id == 0:
-                im = cv2.imread('okutama/images_{}_{}/{}/{:010d}.jpg'.format(
-                    image_width, image_height, video_id, frame_id + 1))
+            # debug by saving frame id = 0
+            if len(image_annotations) > 0:
+                im = cv2.imread('stanford/images_{}_{}/{}/{:010d}.jpg'.format(
+                    resized_long_edge, resized_short_edge, video_id, frame_id +
+                    1))
 
             for _, image_annotation in image_annotations.iterrows():
-                image_resolution = (image_width, image_height)
-                original_image_resolution = (
-                    video_id_to_original_resolution[video_id])
+                image_resolution = (resized_image_width, resized_image_height)
                 xmin, ymin, xmax, ymax = _get_resized_annotation(
                     image_annotation, original_image_resolution,
                     image_resolution)
 
+                cv2.rectangle(im, (int(xmin), int(ymin)),
+                              (int(xmax), int(ymax)), (0, 255, 0), 1)
+
                 # upper left, upper right, lower left, lower right
                 key_points = [(xmin, ymin), (xmax, ymin), (xmin, ymax), (xmax,
                                                                          ymax)]
-                # debug
-                if frame_id == 0:
-                    cv2.rectangle(im, (int(xmin), int(ymin)),
-                                  (int(xmax), int(ymax)), (0, 255, 0), 3)
-
                 roi = (xmin, ymin, xmax, ymax)
                 for (x, y) in key_points:
                     grid_x, grid_y = int(x / tile_width), int(y / tile_height)
@@ -814,7 +843,7 @@ def get_tile_classification_annotation(
                             tile_id_to_classification_label[tile_id] = True
                             positive_num += 1
 
-            if frame_id == 0:
+            if len(image_annotations) > 0:
                 cv2.imwrite('/tmp/{}.jpg'.format(image_id), im)
 
         negative_num = int(frame_num * grid_w * grid_h) - positive_num
@@ -832,13 +861,13 @@ def get_tile_classification_annotation(
             pickle.dump(tile_id_to_classification_label, f)
 
 
-def get_okutama_tile_classification_annotation(annotation_dir, image_width,
-                                               image_height, tile_width,
-                                               tile_height, output_dir):
+def get_okutama_tile_classification_annotation(
+        annotation_dir, resized_long_edge, resized_short_edge, tile_width,
+        tile_height, output_dir):
     return get_tile_classification_annotation(
         annotation_dir=annotation_dir,
-        image_width=image_width,
-        image_height=image_height,
+        resized_long_edge=resized_long_edge,
+        resized_short_edge=resized_short_edge,
         tile_width=tile_width,
         tile_height=tile_height,
         output_dir=output_dir,
@@ -850,13 +879,13 @@ def get_okutama_tile_classification_annotation(annotation_dir, image_width,
         video_ids=okutama_train_videos + okutama_test_videos)
 
 
-def get_stanford_tile_classification_annotation(annotation_dir, image_width,
-                                                image_height, tile_width,
-                                                tile_height, output_dir):
+def get_stanford_tile_classification_annotation(
+        annotation_dir, resized_long_edge, resized_short_edge, tile_width,
+        tile_height, output_dir):
     return get_tile_classification_annotation(
         annotation_dir=annotation_dir,
-        image_width=image_width,
-        image_height=image_height,
+        resized_long_edge=resized_long_edge,
+        resized_short_edge=resized_short_edge,
         tile_width=tile_width,
         tile_height=tile_height,
         output_dir=output_dir,

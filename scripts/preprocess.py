@@ -575,11 +575,8 @@ def resize_okutama_frame_sequence(video_dir,
         cv2.imwrite(video_file_path, resized_im)
 
 
-def resize_stanford_frame_sequence_by_id(video_dir,
-                                         output_dir,
-                                         video_id,
-                                         long_edge=1792,
-                                         short_edge=896):
+def resize_stanford_frame_sequence_by_id(video_dir, output_dir, video_id,
+                                         long_edge, short_edge):
     """Resize stanford frame sequence in place.
 
     """
@@ -641,31 +638,9 @@ OKUTAMA_TRAIN_VIDEOS = [
 OKUTAMA_TEST_VIDEOS = ['2.2.2', '2.2.4', '1.1.7']
 
 
-def sample_okutama_frames(tile_classification_annotation_dir,
-                          sample_num_per_video,
-                          output_dir,
-                          split_name='train'):
-    """Sample okutama frame ids for train and test.
-
-    Only frame ids are sampled based on annotation, not real images.
-
-    Args:
-      tile_classification_annotation_dir: 
-      sample_num_per_video: # of samples per class. 2x this number for total samples for classification.
-      output_dir: 
-      split_name:  (Default value = 'train')
-
-    Returns:
-
-    """
-
-    assert split_name in ['train', 'test']
-
-    if split_name == 'train':
-        video_ids = OKUTAMA_TRAIN_VIDEOS
-    else:
-        video_ids = OKUTAMA_TEST_VIDEOS
-
+def sample_train_test_frames(tile_classification_annotation_dir,
+                             sample_num_per_video, output_file_path,
+                             video_ids):
     print('loading tile annotations from {}'.format(
         tile_classification_annotation_dir))
 
@@ -699,10 +674,72 @@ def sample_okutama_frames(tile_classification_annotation_dir,
         total_sample_ids['negative'].extend(
             negative_image_ids[:sample_num_cur_video])
 
+    output_dir = os.path.dirname(output_file_path)
     io_util.create_dir_if_not_exist(output_dir)
-    output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))
     with open(output_file_path, 'wb') as f:
         pickle.dump(total_sample_ids, f)
+
+
+def sample_okutama_frames(tile_classification_annotation_dir,
+                          sample_num_per_video,
+                          output_dir,
+                          split_name='train'):
+    """Sample okutama frame ids for train and test.
+
+    Only frame ids are sampled based on annotation, not real images.
+
+    Args:
+      tile_classification_annotation_dir: 
+      sample_num_per_video: # of samples per class. 2x this number for total samples for classification.
+      output_dir: 
+      split_name:  (Default value = 'train')
+
+    Returns:
+
+    """
+    assert split_name in ['train', 'test']
+
+    if split_name == 'train':
+        video_ids = annotation_stats.okutama_train_videos
+    else:
+        video_ids = annotation_stats.okutama_test_videos
+    output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))
+    sample_train_test_frames(
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        output_file_path,
+        video_ids=video_ids)
+
+
+def sample_stanford_frames(tile_classification_annotation_dir,
+                           sample_num_per_video,
+                           output_dir,
+                           split_name='train'):
+    """Sample stanford frame ids for train and test.
+
+    Only frame ids are sampled based on annotation, not real images.
+
+    Args:
+      tile_classification_annotation_dir: 
+      sample_num_per_video: # of samples per class. 2x this number for total samples for classification.
+      output_dir: 
+      split_name:  (Default value = 'train')
+
+    Returns:
+
+    """
+    assert split_name in ['train', 'test']
+
+    if split_name == 'train':
+        video_ids = annotation_stats.stanford_train_videos
+    else:
+        video_ids = annotation_stats.stanford_test_videos
+    output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))
+    sample_train_test_frames(
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        output_file_path,
+        video_ids=video_ids)
 
 
 if __name__ == "__main__":

@@ -31,20 +31,7 @@ def read_tensor_from_image_file(input_height=299,
     return input_image, normalized
 
 
-def load_image_into_numpy_array(image):
-    (im_width, im_height) = image.size
-    return np.array(image.getdata()).reshape((im_height, im_width, 3)).astype(
-        np.uint8)
-
-
 def _divide_to_tiles(im, grid_w, grid_h, tile_w, tile_h, allocated_tiles):
-    # assert (im_w % grid_w == 0), \
-    #     "image width ({}) cannot be evenly divided to ({}) pieces".format(
-    #         im_w, grid_w)
-    # assert (im_h % grid_h == 0), \
-    #     "image height ({}) cannot be evenly divided to ({}) pieces".format(
-    #        im_h, grid_h)
-
     # row majored. if tiles are divided into 2x2
     # then the sequence is (0,0), (0,1), (1,0), (1,1)
     # in which 1st index is on x-aix, 2nd index on y-axis
@@ -93,8 +80,6 @@ if __name__ == "__main__":
     parser.add_argument("--image_dir", help="Test image directory")
     parser.add_argument("--grid_w", help="# of tile horizontally")
     parser.add_argument("--grid_h", help="# of tiles vertically")
-    parser.add_argument("--im_w", help="# of tile horizontally")
-    parser.add_argument("--im_h", help="# of tiles vertically")
     parser.add_argument(
         "--batch_size", help="max # of tiles to feed in at once")
 
@@ -121,10 +106,6 @@ if __name__ == "__main__":
     grid_w = int(args.grid_w)
     assert args.grid_h
     grid_h = int(args.grid_h)
-    assert args.im_w
-    im_w = int(args.im_w)
-    assert args.im_h
-    im_h = int(args.im_h)
     assert args.batch_size
     batch_size = int(args.batch_size)
 
@@ -189,9 +170,6 @@ if __name__ == "__main__":
     tf.logging.info('average latency: {:.1f}ms, std: {:.1f}ms'.format(
         np.mean(latencies) * 1000,
         np.std(latencies) * 1000))
-    # tf.logging.info('tile latency: {:.1f}ms, std: {:.1f}ms'.format(
-    #     np.mean(tile_latencies) * 1000,
-    #     np.std(tile_latencies) * 1000))
     tf.logging.info(
         'tile + normalization latency: {:.1f}ms, std: {:.1f}ms'.format(
             np.mean(tile_normalization_latencies) * 1000,

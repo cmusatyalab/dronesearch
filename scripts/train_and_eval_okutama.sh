@@ -56,7 +56,7 @@ echo "========================================"
 
 echo "Generating Tile Annotations to ${TILE_ANNOTATION_DIR}"
 mkdir -p ${TILE_ANNOTATION_DIR}
-python annotation.py get_tile_classification_annotation ${ANNOTATION_DIR} ${IMAGE_WIDTH} ${IMAGE_HEIGHT} ${TILE_WIDTH} ${TILE_HEIGHT} ${TILE_ANNOTATION_DIR} | tee ${TILE_ANNOTATION_DIR}/stats.txt
+python annotation.py get_okutama_tile_classification_annotation ${ANNOTATION_DIR} ${IMAGE_WIDTH} ${IMAGE_HEIGHT} ${TILE_WIDTH} ${TILE_HEIGHT} ${TILE_ANNOTATION_DIR} | tee ${TILE_ANNOTATION_DIR}/stats.txt
 
 echo "Sample Tile Images for Training to ${EXPERIMENT_DIR}"
 mkdir -p ${EXPERIMENT_DIR}
