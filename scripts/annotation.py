@@ -23,6 +23,7 @@ from annotation_stats import (
     okutama_video_id_to_original_resolution, okutama_video_to_frame_num,
     stanford_test_videos, stanford_train_videos, stanford_video_to_frame_num,
     stanford_video_id_to_original_resolution)
+import annotation_stats
 
 
 def get_positive_annotation_mask(annotations, labels=['Car', 'Bus']):
@@ -746,6 +747,45 @@ def _get_resized_annotation(image_annotation, original_image_resolution,
     return xmin, ymin, xmax, ymax
 
 
+def fix_tpod_annotation_for_original_resolution(tpod_annotation_dir,
+                                                dataset_name, output_dir):
+    assert dataset_name in ['elephant', 'raft']
+    if dataset_name == 'elephant':
+        original_resolution_lut = annotation_stats.elephant_video_id_to_original_resolution
+        tpod_resolution_lut = annotation_stats.elephant_video_id_to_tpod_resolution
+    elif dataset_name == 'raft':
+        original_resolution_lut = annotation_stats.raft_video_id_to_original_resolution
+        tpod_resolution_lut = annotation_stats.raft_video_id_to_tpod_resolution
+
+    annotations = io_util.load_annotation_from_dir(
+        tpod_annotation_dir, io_util.parse_vatic_annotation_file)
+
+    video_ids = set(annotations['videoid'])
+    for video_id in video_ids:
+        print('working on {}'.format(video_id))
+        video_annotations = annotations[annotations['videoid'] == video_id]
+        (original_width, original_height) = original_resolution_lut[video_id]
+        (image_width, image_height) = tpod_resolution_lut[video_id]
+        resize_width_ratio = original_width / image_width
+        resize_height_ratio = original_height / image_height
+        annotations.loc[annotations.videoid == video_id, 'xmin'] = (
+            video_annotations['xmin'] * resize_width_ratio).clip(
+                lower=0, upper=original_width).astype(int)
+        annotations.loc[annotations.videoid == video_id, 'xmax'] = (
+            video_annotations['xmax'] * resize_width_ratio).clip(
+                lower=0, upper=original_width).astype(int)
+        annotations.loc[annotations.videoid == video_id, 'ymin'] = (
+            video_annotations['ymin'] * resize_height_ratio).clip(
+                lower=0, upper=original_height).astype(int)
+        annotations.loc[annotations.videoid == video_id, 'ymax'] = (
+            video_annotations['ymax'] * resize_height_ratio).clip(
+                lower=0, upper=original_height).astype(int)
+
+    io_util.create_dir_if_not_exist(output_dir)
+    output_file_path = os.path.join(output_dir, 'cache.pkl')
+    annotations.to_pickle(output_file_path)
+
+
 def get_tile_classification_annotation(
         annotation_dir, func_load_annotation_dir,
         video_id_to_original_resolution, video_id_to_frame_num, labels,
@@ -813,8 +853,8 @@ def get_tile_classification_annotation(
             # debug by saving frame id = 0
             if len(image_annotations) > 0:
                 im = cv2.imread('stanford/images_{}_{}/{}/{:010d}.jpg'.format(
-                    resized_long_edge, resized_short_edge, video_id, frame_id +
-                    1))
+                    resized_long_edge, resized_short_edge, video_id,
+                    frame_id + 1))
 
             for _, image_annotation in image_annotations.iterrows():
                 image_resolution = (resized_image_width, resized_image_height)
@@ -897,22 +937,37 @@ def get_stanford_tile_classification_annotation(
         video_ids=stanford_train_videos + stanford_test_videos)
 
 
-def load_tile_classification_annotation(tile_classification_annotation_dir,
-                                        video_ids=[]):
-    tile_annotations = collections.defaultdict(int)
-    annotation_pkl_files = glob.glob(
-        os.path.join(tile_classification_annotation_dir, '*.pkl'))
-    if video_ids:
-        annotation_pkl_files = [
-            annotation_pkl_file for annotation_pkl_file in annotation_pkl_files
-            if os.path.splitext(os.path.basename(annotation_pkl_file))[0] in
-            video_ids
-        ]
-    for annotation_pkl_file in annotation_pkl_files:
-        with open(annotation_pkl_file, 'rb') as f:
-            video_tile_annotations = pickle.load(f)
-        tile_annotations.update(video_tile_annotations)
-    return tile_annotations
+def get_dataset_tile_classification_annotation(
+        dataset_name, annotation_dir, resized_long_edge, resized_short_edge,
+        tile_width, tile_height, output_dir):
+    assert dataset_name in ["elephant", "raft"]
+    func_load_annotation_dir = io_util.load_stanford_campus_annotation
+    video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
+        'video_id_to_original_resolution']
+    video_id_to_frame_num = annotation_stats.dataset[dataset_name][
+        'video_id_to_frame_num']
+    labels = annotation_stats.dataset[dataset_name]['labels']
+    video_ids = annotation_stats.dataset[dataset_name]['video_ids']
+    # elif dataset_name == "raft":
+    #     func_load_annotation_dir = io_util.load_stanford_campus_annotation,
+    #     video_id_to_original_resolution = (
+    #         stanford_video_id_to_original_resolution),
+    #     video_id_to_frame_num = stanford_video_to_frame_num,
+    #     labels = ['Car', 'Bus'],
+    #     video_ids = stanford_train_videos + stanford_test_videos
+
+    return get_tile_classification_annotation(
+        annotation_dir=annotation_dir,
+        resized_long_edge=resized_long_edge,
+        resized_short_edge=resized_short_edge,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        output_dir=output_dir,
+        func_load_annotation_dir=func_load_annotation_dir,
+        video_id_to_original_resolution=video_id_to_original_resolution,
+        video_id_to_frame_num=video_id_to_frame_num,
+        labels=labels,
+        video_ids=video_ids)
 
 
 if __name__ == '__main__':

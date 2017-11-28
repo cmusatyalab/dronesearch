@@ -179,3 +179,125 @@ stanford_video_id_to_original_resolution = {
     "hyang_video6": (1416, 848),
     "nexus_video4": (1284, 1759)
 }
+
+elephant_video_id_to_original_resolution = {
+    "01": (1280, 720),
+    "02": (1280, 720),
+    "03": (1280, 720),
+    "04": (1280, 720),
+    "05": (1280, 720),
+    "06": (1280, 720),
+    "07": (1280, 720),
+    "08": (960, 720),
+    "09": (1280, 720),
+    "10": (1280, 720),
+    "11": (1280, 720)
+}
+
+elephant_video_id_to_tpod_resolution = {
+    "01": (720, 404),
+    "02": (720, 404),
+    "03": (720, 404),
+    "04": (720, 404),
+    "05": (720, 404),
+    "06": (720, 404),
+    "07": (720, 404),
+    "08": (640, 480),
+    "09": (720, 404),
+    "10": (720, 404),
+    "11": (720, 404)
+}
+
+elephant_video_id_to_frame_num = {
+    "01": 1248,
+    "02": 196,
+    "03": 375,
+    "04": 21018,
+    "05": 3454,
+    "06": 6307,
+    "07": 2183,
+    "08": 4685,
+    "09": 9369,
+    "10": 899,
+    "11": 4469
+}
+
+elephant_train_videos = sorted(
+    elephant_video_id_to_original_resolution.keys())[:8]
+elephant_test_videos = sorted(
+    elephant_video_id_to_original_resolution.keys())[8:]
+
+raft_video_id_to_original_resolution = {
+    "01": (1280, 720),
+    "02": (1280, 720),
+    "03": (1280, 720),
+    "04": (1280, 720),
+    "05": (1280, 720),
+    "06": (1280, 720),
+    "07": (1280, 720),
+    "08": (1280, 720),
+    "09": (1280, 720),
+    "10": (1280, 720),
+    "11": (1280, 720)
+}
+
+raft_video_id_to_tpod_resolution = {
+    "01": (720, 404),
+    "02": (720, 404),
+    "03": (720, 404),
+    "04": (720, 404),
+    "05": (720, 404),
+    "06": (720, 404),
+    "07": (720, 404),
+    "08": (720, 404),
+    "09": (720, 404),
+    "10": (720, 404),
+    "11": (720, 404)
+}
+
+raft_video_id_to_frame_num = {
+    "01": 6600,
+    "02": 2938,
+    "03": 2875,
+    "04": 5469,
+    "05": 968,
+    "06": 7534,
+    "07": 8994,
+    "08": 7639,
+    "09": 5947,
+    "10": 2783,
+    "11": 2648
+}
+
+raft_train_videos = sorted(
+    elephant_video_id_to_original_resolution.keys())[:8]
+raft_test_videos = sorted(
+    elephant_video_id_to_original_resolution.keys())[8:]
+dataset = {
+    "elephant": {
+        'video_id_to_original_resolution':
+        elephant_video_id_to_original_resolution,
+        'video_id_to_frame_num':
+        elephant_video_id_to_frame_num,
+        'labels': ['elephant'],
+        'video_ids':
+        elephant_train_videos + elephant_test_videos,
+        'train':
+        elephant_train_videos,
+        'test':
+        elephant_test_videos
+    },
+    "raft": {
+        'video_id_to_original_resolution':
+        raft_video_id_to_original_resolution,
+        'video_id_to_frame_num':
+        raft_video_id_to_frame_num,
+        'labels': ['raft'],
+        'video_ids':
+        raft_train_videos + raft_test_videos,
+        'train':
+        raft_train_videos,
+        'test':
+        raft_test_videos
+    }
+}

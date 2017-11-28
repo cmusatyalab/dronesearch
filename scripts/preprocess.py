@@ -589,13 +589,15 @@ def resize_okutama_frame_sequence(video_dir,
         cv2.imwrite(video_file_path, resized_im)
 
 
-def resize_stanford_frame_sequence_by_id(video_dir, output_dir, video_id,
-                                         long_edge, short_edge):
-    """Resize stanford frame sequence in place.
+def resize_frame_sequence_by_id(video_dir, output_dir, video_id, long_edge,
+                                short_edge):
+    """Resize frame sequence in place.
 
     """
+    if type(video_id) is int:
+        video_id = '{:02d}'.format(video_id)
     frame_sequence_name = video_id
-    print('working on {}'.format(video_id))
+    print('working on {}'.format(frame_sequence_name))
     output_frame_sequence_dir = os.path.join(output_dir, frame_sequence_name)
     io_util.create_dir_if_not_exist(output_frame_sequence_dir)
     video_file_paths = glob.glob(
@@ -661,7 +663,7 @@ def sample_train_test_frames(tile_classification_annotation_dir,
     total_sample_ids = collections.defaultdict(list)
     for video_id in video_ids:
         image_id_to_classification_label = (
-            annotation.load_tile_classification_annotation(
+            io_util.load_all_pickles_from_dir(
                 tile_classification_annotation_dir, video_ids=[video_id]))
         positive_image_ids = ([
             k for k, v in image_id_to_classification_label.items() if v
@@ -748,6 +750,37 @@ def sample_stanford_frames(tile_classification_annotation_dir,
         video_ids = annotation_stats.stanford_train_videos
     else:
         video_ids = annotation_stats.stanford_test_videos
+    output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))
+    sample_train_test_frames(
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        output_file_path,
+        video_ids=video_ids)
+
+
+def sample_dataset_frames(dataset_name,
+                          tile_classification_annotation_dir,
+                          sample_num_per_video,
+                          output_dir,
+                          split_name='train'):
+    """Sample dataset frame ids for train and test.
+
+    Only frame ids are sampled based on annotation, not real images.
+
+    Args:
+    dataset name
+      tile_classification_annotation_dir: 
+      sample_num_per_video: # of samples per class. 2x this number for total samples for classification.
+      output_dir: 
+      split_name:  (Default value = 'train')
+
+    Returns:
+
+    """
+    assert dataset_name in annotation_stats.dataset.keys()
+    assert split_name in ['train', 'test']
+
+    video_ids = annotation_stats.dataset[dataset_name][split_name]
     output_file_path = os.path.join(output_dir, '{}.pkl'.format(split_name))
     sample_train_test_frames(
         tile_classification_annotation_dir,

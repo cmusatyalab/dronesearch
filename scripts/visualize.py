@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import (absolute_import, division, print_function,
-    unicode_literals)
+                        unicode_literals)
 
 import cPickle
 import cv2
@@ -16,8 +16,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-def draw_annotations_on_image(input_image_path,
-                              annotations,
+def draw_annotations_on_image(input_image_path, annotations,
                               output_image_path):
     """Draw annotations on images.
     Annotations should be a panda dataframe
@@ -38,7 +37,8 @@ def draw_annotations_on_image(input_image_path,
     return bgr_im
 
 
-def visualize_annotations_in_image(input_image_path, annotation_file_path, annotation_format, output_image_path):
+def visualize_annotations_in_image(input_image_path, annotation_file_path,
+                                   annotation_format, output_image_path):
     """Visualize annotation in an image."""
     supported_parse_function = {
         "vatic": io_util.parse_vatic_annotation_file,
@@ -46,18 +46,26 @@ def visualize_annotations_in_image(input_image_path, annotation_file_path, annot
     }
     if annotation_format not in supported_parse_function.keys():
         raise ValueError(
-            "Annotation format Not Supported. Currently supports {}, not {}".format(supported_parse_function.keys(),
-                                                                                    annotation_format))
-    image_annotations = supported_parse_function[annotation_format](annotation_file_path)
-    draw_annotations_on_image(input_image_path, image_annotations, output_image_path)
+            "Annotation format Not Supported. Currently supports {}, not {}".
+            format(supported_parse_function.keys(), annotation_format))
+    image_annotations = supported_parse_function[annotation_format](
+        annotation_file_path)
+    draw_annotations_on_image(input_image_path, image_annotations,
+                              output_image_path)
 
 
 def visualize_annotations_in_frame_sequence(frame_sequence_dir,
-                                            annotation_file_path,
-                                            output_dir):
+                                            annotation_dir,
+                                            output_dir,
+                                            video_id=""):
     frame_file_list = sorted(glob.glob(os.path.join(frame_sequence_dir, '*')))
-    annotations = io_util.parse_vatic_annotation_file(annotation_file_path)
-    os.makedirs(output_dir)
+    annotations = io_util.load_annotation_from_dir(
+        annotation_dir, io_util.parse_vatic_annotation_file)
+
+    io_util.create_dir_if_not_exist(output_dir)
+    if video_id:
+        print("filtering through video_id: {}".format(video_id))
+        annotations = annotations[annotations['videoid'] == video_id]
     for frame_file in frame_file_list:
         frame_base_file = os.path.basename(frame_file)
         (frame_seq, ext) = os.path.splitext(frame_base_file)
@@ -67,13 +75,11 @@ def visualize_annotations_in_frame_sequence(frame_sequence_dir,
         frame_annotations = annotations[annotations['frameid'] == frameid]
 
         output_frame_path = os.path.join(output_dir, frame_base_file)
-        draw_annotations_on_image(frame_file,
-                                  frame_annotations,
+        draw_annotations_on_image(frame_file, frame_annotations,
                                   output_frame_path)
 
 
-def rename_frame_sequence_for_avconv(frame_sequence_dir,
-                                     output_dir):
+def rename_frame_sequence_for_avconv(frame_sequence_dir, output_dir):
     """Rename image files so that avconv can combine them into a video.
 
     Avconv cmd: avconv -r 30 -i /frames/%3d.jpg output_video.mov
@@ -89,8 +95,8 @@ def rename_frame_sequence_for_avconv(frame_sequence_dir,
 
     The order is the natural sequence of the original file names.
     """
-    frame_file_list = sorted(glob.glob(
-        os.path.join(os.path.abspath(frame_sequence_dir), '*')))
+    frame_file_list = sorted(
+        glob.glob(os.path.join(os.path.abspath(frame_sequence_dir), '*')))
     if not frame_file_list:
         raise ValueError("No files found in {}".format(frame_sequence_dir))
 
@@ -100,15 +106,15 @@ def rename_frame_sequence_for_avconv(frame_sequence_dir,
 
     print(('Issue "avconv -r 30 -i {}/{}{} output_video.mov" '
            'to create a video.').format(
-        output_dir, '%' + str(max_digit_num) + 'd', image_ext))
+               output_dir, '%' + str(max_digit_num) + 'd', image_ext))
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     output_file_name_pat = '{:0' + str(max_digit_num) + 'd}' + image_ext
     for index, frame_file in enumerate(frame_file_list):
-        dst_file = os.path.join(
-            output_dir, output_file_name_pat.format(index + 1))
+        dst_file = os.path.join(output_dir,
+                                output_file_name_pat.format(index + 1))
         os.symlink(frame_file, dst_file)
 
 
@@ -119,10 +125,8 @@ def vis_prc(precision_recall_file_path, output_file_path):
         recall = data['rec']
         precision = data['prec']
         average_precision = data['ap']
-        plt.step(recall, precision, color='b', alpha=0.2,
-                 where='post')
-        plt.fill_between(recall, precision, step='post', alpha=0.2,
-                         color='b')
+        plt.step(recall, precision, color='b', alpha=0.2, where='post')
+        plt.fill_between(recall, precision, step='post', alpha=0.2, color='b')
         plt.xlabel('Recall')
         plt.ylabel('Precision')
         plt.ylim([0.0, 1.05])

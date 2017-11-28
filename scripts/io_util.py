@@ -1,11 +1,13 @@
 from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+    unicode_literals)
 
+import collections
+import functools
 import glob
 import math
 import numpy as np
 import os
-import functools
+import cPickle as pickle
 
 import pandas as pd
 
@@ -230,5 +232,22 @@ def flatten_directory_with_symlink(input_dir, output_dir, followlinks):
             print("symlink {} -> {}".format(dst_filepath, src_filepath))
             os.symlink(src_filepath, dst_filepath)
 
+
+def load_all_pickles_from_dir(dir_path,
+                              video_ids=[]):
+    pickle_content = {}
+    annotation_pkl_files = glob.glob(
+        os.path.join(dir_path, '*.pkl'))
+    if video_ids:
+        annotation_pkl_files = [
+            annotation_pkl_file for annotation_pkl_file in annotation_pkl_files
+            if os.path.splitext(os.path.basename(annotation_pkl_file))[0] in
+            video_ids
+        ]
+    for annotation_pkl_file in annotation_pkl_files:
+        with open(annotation_pkl_file, 'rb') as f:
+            video_pickle_content = pickle.load(f)
+        pickle_content.update(video_pickle_content)
+    return pickle_content
 
 # parse_annotation_file('nexus/video1/annotations.txt')

@@ -75,7 +75,7 @@ def print_stats(positive_dir,
     r_server = redis.StrictRedis(
         host='localhost', port=6379, db=redis_db, socket_timeout=3600)
     class_label_map = {positive_dir: '1', negative_dir: '0'}
-    tp, fp, tn, fp = 0, 0, 0, 0
+    tp, fn, tn, fp = 0, 0, 0, 0
     for class_dir in class_label_map.keys():
         print(class_dir)
         ids = [
