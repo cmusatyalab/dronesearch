@@ -9,6 +9,8 @@ import fire
 import glob
 import os
 
+import numpy as np
+
 import io_util
 
 import matplotlib
@@ -77,6 +79,75 @@ def visualize_annotations_in_frame_sequence(frame_sequence_dir,
         output_frame_path = os.path.join(output_dir, frame_base_file)
         draw_annotations_on_image(frame_file, frame_annotations,
                                   output_frame_path)
+
+
+def _get_keys_by_id_prefix(my_dict, key_prefix):
+    key_prefix += '_'
+    keys = [key for key in my_dict.keys() if key.startswith(key_prefix)]
+    return keys
+
+
+def _get_tile_size_from_ratio(im, long_edge_ratio, short_edge_ratio):
+    im_h, im_w, _ = im.shape
+    if im_h > im_w:
+        tile_height = int(im_h * long_edge_ratio)
+        tile_width = int(im_w * short_edge_ratio)
+    else:
+        tile_width = int(im_w * long_edge_ratio)
+        tile_height = int(im_h * short_edge_ratio)
+    return tile_height, tile_width
+
+
+def visualize_predictions_in_frame_sequence(frame_sequence_dir,
+                                            result_dir,
+                                            output_dir,
+                                            video_id="",
+                                            prediction_threshold=0.5,
+                                            long_edge_ratio=0.5,
+                                            short_edge_ratio=1):
+    frame_file_list = sorted(glob.glob(os.path.join(frame_sequence_dir, '*')))
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+
+    io_util.create_dir_if_not_exist(output_dir)
+    if video_id:
+        print("filtering through video_id: {}".format(video_id))
+        video_predictions_ids = _get_keys_by_id_prefix(predictions, video_id)
+        predictions = {
+            k: v
+            for k, v in predictions.items() if k in video_predictions_ids
+        }
+    for frame_file in frame_file_list:
+        frame_base_file = os.path.basename(frame_file)
+        (frame_seq, ext) = os.path.splitext(frame_base_file)
+        frame_id = int(frame_seq)
+
+        print("processing: %s" % frame_id)
+        prediction_image_id = '{}_{}'.format(video_id, frame_id)
+        prediction_tile_ids = _get_keys_by_id_prefix(predictions,
+                                                     prediction_image_id)
+        im = cv2.imread(frame_file)
+        orig_im = np.copy(im)
+        output_frame_path = os.path.join(output_dir, frame_base_file)
+        tile_height, tile_width = _get_tile_size_from_ratio(
+            im, long_edge_ratio, short_edge_ratio)
+        for prediction_tile_id in prediction_tile_ids:
+            if predictions[prediction_tile_id][1] < prediction_threshold:
+                grid_x, grid_y = int(prediction_tile_id.split('_')[-2]), int(
+                    prediction_tile_id.split('_')[-1])
+                tile_x = grid_x * tile_width
+                tile_y = grid_y * tile_height
+                # tile_to_grey = np.copy(im[tile_y:tile_y + tile_height, tile_x:
+                #                           tile_x + tile_width])
+                # tile_to_grey = cv2.cvtColor(tile_to_grey, cv2.COLOR_BGR2GRAY)
+                # # make it back to 3 channels so that
+                # # we can put it in the original image
+                # tile_to_grey = cv2.cvtColor(tile_to_grey, cv2.COLOR_GRAY2BGR)
+                # im[tile_y:tile_y + tile_height, tile_x:
+                #    tile_x + tile_width] = tile_to_grey
+                im[tile_y:tile_y + tile_height, tile_x:
+                   tile_x + tile_width] = 0
+        combined_im = np.concatenate((orig_im, im), axis=0)
+        cv2.imwrite(output_frame_path, combined_im)
 
 
 def rename_frame_sequence_for_avconv(frame_sequence_dir, output_dir):
