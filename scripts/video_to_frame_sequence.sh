@@ -2,7 +2,7 @@ if [[ -z "$BASE_DIR" ]]; then
     BASE_DIR="/home/junjuew/mobisys18/processed_dataset/stanford_campus"
 fi
 if [[ -z "$VIDEO_LIST_FILE" ]]; then
-    $VIDEO_LIST_FILE="${BASE_DIR}/video_with_cars.txt"
+    VIDEO_LIST_FILE="${BASE_DIR}/video_with_cars.txt"
 fi
 
 VIDEO_DIR="${BASE_DIR}/videos"

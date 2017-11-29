@@ -1,4 +1,5 @@
 import collections
+import io_util
 
 okutama_video_to_frame_num = {
     '1.1.10': 2630,
@@ -269,12 +270,12 @@ raft_video_id_to_frame_num = {
     "11": 2648
 }
 
-raft_train_videos = sorted(
-    elephant_video_id_to_original_resolution.keys())[:8]
-raft_test_videos = sorted(
-    elephant_video_id_to_original_resolution.keys())[8:]
+raft_train_videos = sorted(elephant_video_id_to_original_resolution.keys())[:8]
+raft_test_videos = sorted(elephant_video_id_to_original_resolution.keys())[8:]
 dataset = {
     "elephant": {
+        'annotation_func':
+        io_util.load_stanford_campus_annotation,
         'video_id_to_original_resolution':
         elephant_video_id_to_original_resolution,
         'video_id_to_frame_num':
@@ -288,16 +289,44 @@ dataset = {
         elephant_test_videos
     },
     "raft": {
+        'annotation_func':
+        io_util.load_stanford_campus_annotation,
         'video_id_to_original_resolution':
         raft_video_id_to_original_resolution,
-        'video_id_to_frame_num':
-        raft_video_id_to_frame_num,
+        'video_id_to_frame_num': raft_video_id_to_frame_num,
         'labels': ['raft'],
+        'video_ids': raft_train_videos + raft_test_videos,
+        'train': raft_train_videos,
+        'test': raft_test_videos
+    },
+    "okutama": {
+        'annotation_func':
+        io_util.load_okutama_annotation,
+        'video_id_to_original_resolution':
+        okutama_video_id_to_original_resolution,
+        'video_id_to_frame_num':
+        okutama_video_to_frame_num,
+        'labels': ['Person'],
         'video_ids':
-        raft_train_videos + raft_test_videos,
+        okutama_train_videos + okutama_test_videos,
         'train':
-        raft_train_videos,
+        okutama_train_videos,
         'test':
-        raft_test_videos
+        okutama_test_videos
+    },
+    "stanford": {
+        'annotation_func':
+        io_util.load_stanford_campus_annotation,
+        'video_id_to_original_resolution':
+        stanford_video_id_to_original_resolution,
+        'video_id_to_frame_num':
+        stanford_video_to_frame_num,
+        'labels': ['Car', 'Bus'],
+        'video_ids':
+        stanford_train_videos + stanford_test_videos,
+        'train':
+        stanford_train_videos,
+        'test':
+        stanford_test_videos
     }
 }

@@ -202,3 +202,5 @@ python freeze_and_optimize_deploy_model.py --checkpoint_path $tiled/2_more_test/
 - [ ] Object Detection/Activity Recognition Accuracy for various task: These are the detectors running on the cloudlet, showing that current CV techniques can be helpful for search and rescue
 - [ ] Speed and event detection accuracy of these detectors on drone platforms: Showcase such detectors cannot be simply moved to execute on the mobile h/w (or is a table of execution time enough?)
 - [ ] B/W consumption comparison with naively transmitting all videos back to cloudlet
+python annotation.py fix_tpod_annotation_for_original_resolution raft/tpod_annotations raft raft/annotations
+python infer_tile_classifier.py --checkpoint_path=/home/junjuew/mobisys18/processed_dataset/okutama/experiments/classification_224_224/logs_all_layers_20000 --input_dir=/home/junjuew/mobisys18/processed_dataset/okutama/images_3808_2240 --output_endpoint_names=Predictions --result_file=/tmp/test_inference_results.pkl --grid_w=17 --grid_h=10 --image_w=3808 --image_h=2240 --batch_size=5 --max_gpu_memory_fraction=1

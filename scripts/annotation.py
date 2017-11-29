@@ -54,6 +54,30 @@ def _intersection_area(bx1, bx2):
     return inters
 
 
+def iou(boxA, boxB):
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+
+    # compute the area of intersection rectangle
+    interArea = (xB - xA + 1) * (yB - yA + 1)
+
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+
+    # return the intersection over union value
+    return iou
+
+
 def is_small_bx_in_big_bx(
         small_bx, large_bx,
         intersection_over_small_bx_percentage_threshold=0.25):
@@ -694,6 +718,83 @@ def print_okutama_person_events(annotation_dir):
 
     print('printing train and test set stats...')
     video_groups = {'train': okutama_train_videos, 'test': okutama_test_videos}
+    for group_name, video_ids in video_groups.items():
+        print(group_name)
+        group_video_positive_nums = [
+            video_to_event_frames[video_id]['positive_frame_num']
+            for video_id in video_ids
+        ]
+        group_video_negative_nums = [
+            video_to_event_frames[video_id]['negative_frame_num']
+            for video_id in video_ids
+        ]
+        group_video_total_nums = [
+            video_to_event_frames[video_id]['total_frame_num']
+            for video_id in video_ids
+        ]
+        print('The minimum positive frames a video contains: {}'.format(
+            np.min(group_video_positive_nums)))
+        print('The minimum negative frames a video contains: {}'.format(
+            np.min(group_video_negative_nums)))
+        print('Total positive frames: {}'.format(
+            np.sum(group_video_positive_nums)))
+        print('Total negative frames: {}'.format(
+            np.sum(group_video_negative_nums)))
+
+
+def print_dataset_events(annotation_dir, dataset_name):
+    """Print car events stats in the stanford dataset.
+
+    Args:
+      annotation_dir: Annotation dir.
+      video_list_file_path: List of video files to include (Default value = None).
+
+    Returns:
+
+    """
+    assert dataset_name in annotation_stats.dataset.keys()
+    load_annotation_func = annotation_stats.dataset[dataset_name][
+        'annotation_func']
+    labels = annotation_stats.dataset[dataset_name]['labels']
+    video_groups = {
+        'train': annotation_stats.dataset[dataset_name]['train'],
+        'test': annotation_stats.dataset[dataset_name]['test']
+    }
+    video_id_to_frame_num = annotation_stats.dataset[dataset_name][
+        'video_id_to_frame_num']
+    annotations = load_annotation_func(annotation_dir)
+    annotations = filter_annotation_by_label(annotations, labels=labels)
+    video_to_event_frames = collections.defaultdict(dict)
+    video_ids = list(set(annotations['videoid']))
+    for video_id in video_ids:
+        video_annotations = annotations[annotations['videoid'] == video_id]
+        video_positive_frame_ids = list(set(video_annotations['frameid']))
+        total_frame_num = video_id_to_frame_num[video_id]
+        video_to_event_frames[video_id] = {
+            'positive_frame_num':
+            len(video_positive_frame_ids),
+            'negative_frame_num':
+            max(0, total_frame_num - len(video_positive_frame_ids)),
+            'total_frame_num':
+            total_frame_num,
+            'positive_frame_percent':
+            len(video_positive_frame_ids) * 1.0 / total_frame_num,
+        }
+    print('There are {} videos with person events.'.format(len(video_ids)))
+    print(json.dumps(video_to_event_frames, indent=4))
+
+    video_positive_nums = [
+        video_to_event_frames[video_id]['positive_frame_num']
+        for video_id in video_to_event_frames.keys()
+    ]
+    video_negative_nums = [
+        video_to_event_frames[video_id]['negative_frame_num']
+        for video_id in video_to_event_frames.keys()
+    ]
+    print('total positive frame num: {}'.format(np.sum(video_positive_nums)))
+    print('total negative frame num: {}'.format(np.sum(video_negative_nums)))
+
+    print('printing train and test set stats...')
     for group_name, video_ids in video_groups.items():
         print(group_name)
         group_video_positive_nums = [
