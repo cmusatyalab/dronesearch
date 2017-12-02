@@ -8,3 +8,6 @@ environment
 pretrained_models
 pyenv
 redis
+*.pdf
+*.pkl
+*.mp4

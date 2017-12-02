@@ -176,7 +176,8 @@ def fix_okutama_annotataions():
         start_frame = min(sorted_track_annotations['frameid'])
         end_frame = max(sorted_track_annotations['frameid'])
         if len(sorted_track_annotations) < 10:
-            print('{} is less than 10 frames, only have {} frames!'.format(track_id, len(sorted_track_annotations)))
+            print('{} is less than 10 frames, only have {} frames!'.format(
+                track_id, len(sorted_track_annotations)))
             continue
 
         start_box = sorted_track_annotations[sorted_track_annotations[
@@ -270,6 +271,66 @@ def _get_keys_by_id_prefix(my_dict, key_prefix):
     key_prefix += '_'
     keys = [key for key in my_dict.keys() if key.startswith(key_prefix)]
     return keys
+
+
+def _get_tile_resolution_from_image_resolution(
+        image_resolution, long_edge_ratio, short_edge_ratio):
+    im_w, im_h = image_resolution
+    if im_h > im_w:
+        tile_height = int(im_h * long_edge_ratio)
+        tile_width = int(im_w * short_edge_ratio)
+    else:
+        tile_width = int(im_w * long_edge_ratio)
+        tile_height = int(im_h * short_edge_ratio)
+    return tile_width, tile_height
+
+
+def _get_tile_coords_from_bbox(image_resolution, bbox, long_edge_ratio,
+                               short_edge_ratio):
+    im_w, im_h = image_resolution
+    tile_width, tile_height = _get_tile_resolution_from_image_resolution(
+        image_resolution, long_edge_ratio, short_edge_ratio)
+    xmin, ymin, xmax, ymax = bbox
+    tile_id_x, tile_id_y = [], []
+    for point, length in [(xmin, tile_width), (xmax, tile_width)]:
+        tile_id = int(point / length)
+        tile_id_x.append(tile_id)
+
+    for point, length in [(ymin, tile_height), (ymax, tile_height)]:
+        tile_id = int(point / length)
+        tile_id_y.append(tile_id)
+
+    tile_coords = set(zip(tile_id_x, tile_id_y))
+    return list(tile_coords)
+
+
+def _clamp_bbox(image_resolution, bbox):
+    im_w, im_h = image_resolution
+    xmin, ymin, xmax, ymax = bbox
+    xmin, xmax = map(lambda x: min(max(0, x), im_w - 1), [xmin, xmax])
+    ymin, ymax = map(lambda x: min(max(0, x), im_h - 1), [ymin, ymax])
+    return xmin, ymin, xmax, ymax
+
+
+def _get_tile_fire_threshold_for_2_horizontal_tiles(image_resolution,
+                                                    predictions,
+                                                    row,
+                                                    long_edge_ratio=0.5,
+                                                    short_edge_ratio=1):
+    image_width, image_height = image_resolution
+    bbox = _clamp_bbox(image_resolution,
+                       (row['xmin'], row['ymin'], row['xmax'], row['ymax']))
+    tile_coords = _get_tile_coords_from_bbox(image_resolution, bbox,
+                                             long_edge_ratio, short_edge_ratio)
+    tile_fire_thresholds = []
+    for tile_coord in tile_coords:
+        tile_id = '{}_{}_{}_{}'.format(row['videoid'], row['frameid'],
+                                       *tile_coord)
+        assert _fix_ground_truth_id_to_prediction_id(tile_id) in predictions
+        pred_prob = predictions[_fix_ground_truth_id_to_prediction_id(
+            tile_id)][1]
+        tile_fire_thresholds.append(pred_prob)
+    return tile_fire_thresholds
 
 
 def _has_tile_fired(tile_annotations, predictions, row):
@@ -456,6 +517,96 @@ def all_event_metrics_on_video():
             tile_annotation_dir,
             result_dir,
             test_only=True)
+
+
+def all_event_recall_on_video(output_dir):
+    dataset_to_event_recall = {}
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        print('working on {}'.format(dataset_name))
+        track_to_fire_thresholds, predictions_thresholds, ground_truth = analyze_event_recall_on_video(
+            annotation_dir,
+            dataset_name,
+            result_dir,
+            tile_annotation_dir,
+            long_edge_ratio=0.5,
+            short_edge_ratio=1)
+        dataset_to_event_recall[dataset_name] = {}
+        dataset_to_event_recall[dataset_name][
+            'track_to_fire_thresholds'] = track_to_fire_thresholds
+        dataset_to_event_recall[dataset_name][
+            'predictions_thresholds'] = predictions_thresholds
+        dataset_to_event_recall[dataset_name]['ground_truth'] = ground_truth
+    io_util.create_dir_if_not_exist(output_dir)
+    with open(os.path.join(output_dir, 'event_recall.pkl'), 'wb') as f:
+        pickle.dump(dataset_to_event_recall, f)
+
+
+def _filter_by_video_ids(predictions, video_ids):
+    video_prediction_keys = []
+    for video_id in video_ids:
+        video_prediction_keys.extend(
+            _get_keys_by_id_prefix(predictions, video_id))
+    assert len(video_prediction_keys) <= len(predictions.keys())
+    predictions = {
+        k: v
+        for k, v in predictions.iteritems() if k in video_prediction_keys
+    }
+    return predictions
+
+
+def analyze_event_recall_on_video(annotation_dir,
+                                  dataset_name,
+                                  result_dir,
+                                  tile_annotation_dir,
+                                  test_only=True,
+                                  long_edge_ratio=0.5,
+                                  short_edge_ratio=1):
+    assert dataset_name in annotation_stats.dataset.keys()
+
+    load_annotation_func = annotation_stats.dataset[dataset_name][
+        'annotation_func']
+    labels = annotation_stats.dataset[dataset_name]['labels']
+    video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
+        'video_id_to_original_resolution']
+
+    tile_annotations = io_util.load_all_pickles_from_dir(tile_annotation_dir)
+    annotations = load_annotation_func(annotation_dir)
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+
+    if test_only:
+        test_video_ids = annotation_stats.dataset[dataset_name]['test']
+        annotations = annotations[annotations['videoid'].isin(test_video_ids)]
+        predictions = _filter_by_video_ids(predictions, test_video_ids)
+
+    annotations = annotation.filter_annotation_by_label(
+        annotations, labels=labels)
+    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
+        annotations)
+
+    track_to_fire_thresholds = collections.defaultdict(list)
+    for track_id, track_annotations in track_annotations_grp:
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        start_frame = min(sorted_track_annotations['frameid'])
+        end_frame = max(sorted_track_annotations['frameid'])
+        videoid = list(set(sorted_track_annotations['videoid']))
+        assert len(videoid) == 1
+        if len(sorted_track_annotations) < 10:
+            print('{} is less than 10 frames!'.format(track_id))
+            continue
+
+        videoid = videoid[0]
+        print('video id: {}, track id: {}, start frame: {}, end frame: {}'.
+              format(videoid, track_id, start_frame, end_frame))
+
+        image_resolution = video_id_to_original_resolution[videoid]
+        for index, row in sorted_track_annotations.iterrows():
+            tile_fire_thresholds = _get_tile_fire_threshold_for_2_horizontal_tiles(
+                image_resolution, predictions, row, long_edge_ratio,
+                short_edge_ratio)
+            track_to_fire_thresholds[track_id].extend(tile_fire_thresholds)
+    predictions_thresholds = {k: v[1] for k, v in predictions.items()}
+    return track_to_fire_thresholds, predictions_thresholds, tile_annotations
 
 
 if __name__ == '__main__':
