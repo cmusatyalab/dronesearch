@@ -286,7 +286,9 @@ dataset = {
         'train':
         elephant_train_videos,
         'test':
-        elephant_test_videos
+        elephant_test_videos,
+        'extra_negative_dataset':
+        ['okutama', 'stanford', 'raft'],
     },
     "raft": {
         'annotation_func':
@@ -297,7 +299,9 @@ dataset = {
         'labels': ['raft'],
         'video_ids': raft_train_videos + raft_test_videos,
         'train': raft_train_videos,
-        'test': raft_test_videos
+        'test': raft_test_videos,
+        'extra_negative_dataset':
+        ['okutama', 'stanford', 'elephant'],
     },
     "okutama": {
         'annotation_func':
@@ -312,7 +316,9 @@ dataset = {
         'train':
         okutama_train_videos,
         'test':
-        okutama_test_videos
+        okutama_test_videos,
+        'extra_negative_dataset':
+        ['elephant'],
     },
     "stanford": {
         'annotation_func':
@@ -327,6 +333,8 @@ dataset = {
         'train':
         stanford_train_videos,
         'test':
-        stanford_test_videos
+        stanford_test_videos,
+        'extra_negative_dataset':
+        ['okutama', 'raft', 'elephant'],
     }
 }
