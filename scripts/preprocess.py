@@ -652,18 +652,27 @@ def resize_stanford_frame_sequence(video_dir,
 
 
 def sample_train_test_frames_with_extra_negative(
-        tile_classification_annotation_dir, sample_num_per_video, video_ids,
+        dataset_name, tile_classification_annotation_dir, sample_num_per_video,
+        video_ids, extra_negative_dataset_names,
         extra_negative_annotation_dirs, extra_negative_sample_num_per_video,
         extra_negative_video_ids, output_file_path):
     normal_sample_ids = _sample_positive_and_negative(
-        tile_classification_annotation_dir, sample_num_per_video, video_ids)
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        video_ids,
+        image_id_format_func=(
+            lambda image_id: os.path.join(dataset_name, image_id)))
     extra_negative_ids = []
     for idx, extra_negative_annotation_dir in enumerate(
             extra_negative_annotation_dirs):
         extra_negative_ids.extend(
-            _sample_negative(extra_negative_annotation_dir,
-                             extra_negative_sample_num_per_video,
-                             extra_negative_video_ids[idx]))
+            _sample_negative(
+                extra_negative_annotation_dir,
+                extra_negative_sample_num_per_video,
+                extra_negative_video_ids[idx],
+                image_id_format_func=lambda image_id: os.path.join(
+                    extra_negative_dataset_names[idx], image_id)
+            ))
     sample_ids = normal_sample_ids
     sample_ids['negative'].extend(extra_negative_ids)
     assert len(sample_ids['negative']) > len(sample_ids['positive'])
@@ -675,8 +684,10 @@ def sample_train_test_frames_with_extra_negative(
         pickle.dump(sample_ids, f)
 
 
-def _sample_negative(tile_classification_annotation_dir, sample_num_per_video,
-                     video_ids):
+def _sample_negative(tile_classification_annotation_dir,
+                     sample_num_per_video,
+                     video_ids,
+                     image_id_format_func=lambda image_id: image_id):
     logger.debug(
         'sample negative tile annotations from {} for video {}'.format(
             tile_classification_annotation_dir, video_ids))
@@ -685,7 +696,8 @@ def _sample_negative(tile_classification_annotation_dir, sample_num_per_video,
         image_id_to_classification_label = (io_util.load_all_pickles_from_dir(
             tile_classification_annotation_dir, video_ids=[video_id]))
         negative_image_ids = ([
-            k for k, v in image_id_to_classification_label.items() if not v
+            image_id_format_func(k)
+            for k, v in image_id_to_classification_label.items() if not v
         ])
         random.shuffle(negative_image_ids)
         sample_num_cur_video = np.min(
@@ -697,8 +709,11 @@ def _sample_negative(tile_classification_annotation_dir, sample_num_per_video,
     return negative_ids
 
 
-def _sample_positive_and_negative(tile_classification_annotation_dir,
-                                  sample_num_per_video, video_ids):
+def _sample_positive_and_negative(
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        video_ids,
+        image_id_format_func=lambda image_id: image_id):
     logger.debug('loading tile annotations from {}'.format(
         tile_classification_annotation_dir))
 
@@ -707,10 +722,12 @@ def _sample_positive_and_negative(tile_classification_annotation_dir,
         image_id_to_classification_label = (io_util.load_all_pickles_from_dir(
             tile_classification_annotation_dir, video_ids=[video_id]))
         positive_image_ids = ([
-            k for k, v in image_id_to_classification_label.items() if v
+            image_id_format_func(k)
+            for k, v in image_id_to_classification_label.items() if v
         ])
         negative_image_ids = ([
-            k for k, v in image_id_to_classification_label.items() if not v
+            image_id_format_func(k)
+            for k, v in image_id_to_classification_label.items() if not v
         ])
         random.shuffle(positive_image_ids)
         random.shuffle(negative_image_ids)
@@ -723,8 +740,8 @@ def _sample_positive_and_negative(tile_classification_annotation_dir,
             '{} total tiles: {}, positive images: {}, negative images: {}, sample images per class: {}'.
             format(video_id,
                    len(positive_image_ids) + len(negative_image_ids),
-                   len(positive_image_ids),
-                   len(negative_image_ids), sample_num_cur_video))
+                   len(positive_image_ids), len(negative_image_ids),
+                   sample_num_cur_video))
         total_sample_ids['positive'].extend(
             positive_image_ids[:sample_num_cur_video])
         total_sample_ids['negative'].extend(
