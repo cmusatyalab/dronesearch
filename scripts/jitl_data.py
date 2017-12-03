@@ -142,7 +142,7 @@ def make_jitl_dataframe(dataset,
     print df.iloc[::df.shape[0] / 10]
 
     if output_file:
-        df.to_csv(output_file, sep=' ')
+        df.to_pickle(output_file)
 
 
 def _parse_tile_annotation_and_inference_pre_logit(tile_classification_annotation_dir,
