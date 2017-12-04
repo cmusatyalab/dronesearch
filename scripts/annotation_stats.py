@@ -114,10 +114,19 @@ stanford_train_videos = [
     "bookstore_video3", "bookstore_video0", "bookstore_video1",
     "deathCircle_video3"
 ]
-stanford_test_videos = [
-    "little_video2", "hyang_video4", "bookstore_video5", "bookstore_video4",
+
+stanford_test_horizontal_videos = [
+    "bookstore_video5", "bookstore_video4"
+]
+
+stanford_test_vertical_videos = [
+    "little_video2", "hyang_video4",
     "gates_video1"
 ]
+
+stanford_test_videos = (stanford_test_horizontal_videos
+                        + stanford_test_vertical_videos)
+
 stanford_video_id_to_original_resolution = {
     "quad_video0": (1983, 1088),
     "hyang_video8": (1350, 1940),
@@ -286,7 +295,9 @@ dataset = {
         'train':
         elephant_train_videos,
         'test':
-        elephant_test_videos
+        elephant_test_videos,
+        'extra_negative_dataset':
+        ['okutama', 'stanford', 'raft'],
     },
     "raft": {
         'annotation_func':
@@ -297,7 +308,9 @@ dataset = {
         'labels': ['raft'],
         'video_ids': raft_train_videos + raft_test_videos,
         'train': raft_train_videos,
-        'test': raft_test_videos
+        'test': raft_test_videos,
+        'extra_negative_dataset':
+        ['okutama', 'stanford', 'elephant'],
     },
     "okutama": {
         'annotation_func':
@@ -312,7 +325,9 @@ dataset = {
         'train':
         okutama_train_videos,
         'test':
-        okutama_test_videos
+        okutama_test_videos,
+        'extra_negative_dataset':
+        ['elephant'],
     },
     "stanford": {
         'annotation_func':
@@ -327,6 +342,12 @@ dataset = {
         'train':
         stanford_train_videos,
         'test':
-        stanford_test_videos
+        stanford_test_videos,
+        'test_horizontal':
+        stanford_test_horizontal_videos,
+        'test_vertical':
+        stanford_test_vertical_videos,
+        'extra_negative_dataset':
+        ['okutama', 'raft', 'elephant'],
     }
 }

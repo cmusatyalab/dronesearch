@@ -63,11 +63,11 @@ def visualize_annotations_in_frame_sequence(frame_sequence_dir,
     frame_file_list = sorted(glob.glob(os.path.join(frame_sequence_dir, '*')))
     annotations = io_util.load_annotation_from_dir(
         annotation_dir, io_util.parse_vatic_annotation_file)
-
     io_util.create_dir_if_not_exist(output_dir)
     if video_id:
         print("filtering through video_id: {}".format(video_id))
         annotations = annotations[annotations['videoid'] == video_id]
+    assert len(annotations) > 0
     for frame_file in frame_file_list:
         frame_base_file = os.path.basename(frame_file)
         (frame_seq, ext) = os.path.splitext(frame_base_file)

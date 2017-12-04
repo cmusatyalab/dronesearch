@@ -18,6 +18,9 @@ import annotation_stats
 import fire
 import io_util
 
+import logzero
+from logzero import logger
+
 
 ############################################################
 # Preprocess for munich
@@ -56,7 +59,7 @@ def slice_image(im, w, h, slice_is_ratio):
     for h_idx in range(0, horizontal_num):
         vertical_slice = []
         for v_idx in range(0, vertical_num):
-            # print('slicing ({}, {})'.format(h_idx, v_idx))
+            # logger.debug('slicing ({}, {})'.format(h_idx, v_idx))
             slice_x = h_idx * w
             slice_y = v_idx * h
             slice_w = min(w, im_w - slice_x)
@@ -94,12 +97,12 @@ def slice_images(input_dir,
 
     file_paths = glob.glob(os.path.join(input_dir, '*'))
     for file_path in file_paths:
-        # print("slicing file {}".format(file_path))
+        # logger.debug("slicing file {}".format(file_path))
         output_prefix, ext = os.path.splitext(os.path.basename(file_path))
         im = cv2.imread(file_path)
         slices = slice_image(
             im, slice_w, slice_h, slice_is_ratio=slice_is_ratio)
-        # print('total {}x{} slices'.format(len(slices), len(slices[0])))
+        # logger.debug('total {}x{} slices'.format(len(slices), len(slices[0])))
         for h_idx in range(len(slices)):
             h_idx_format_string = io_util.get_prefix0_format_string(
                 len(slices))
@@ -203,7 +206,7 @@ def get_slice_contain_roi_bitmap(image_dir, imageid, slice_annotations,
             tile = (grid_x * slice_w, grid_y * slice_h, (grid_x + 1) * slice_w,
                     (grid_y + 1) * slice_h)
             if annotation.is_small_bx_in_big_bx(roi, tile):
-                print("marking grid cell ({}, {}) as positive".format(
+                logger.debug("marking grid cell ({}, {}) as positive".format(
                     grid_x, grid_y))
                 slice_contain_roi_bitmap[grid_x][grid_y] = True
     return slice_contain_roi_bitmap
@@ -286,7 +289,8 @@ def group_sliced_images_by_label(dataset, image_dir, annotation_dir,
     for imageid in imageids:
         image_annotations = annotations[annotations['imageid'] == imageid]
         slice_file_paths = slice_annotations.get_image_slice_paths(imageid)
-        print("processing slices from base image id: {}".format(imageid))
+        logger.debug(
+            "processing slices from base image id: {}".format(imageid))
         slice_contain_roi_bitmap = get_slice_contain_roi_bitmap(
             image_dir, imageid, slice_annotations, image_annotations)
         symlink_or_copy_slices_by_bitmap(
@@ -441,7 +445,7 @@ def group_stanford_images(image_dir,
     IMAGE_EXT = '.jpg'
 
     annotations = io_util.load_stanford_campus_annotation(annotation_dir)
-    print('loaded annotations.')
+    logger.debug('loaded annotations.')
     video_list = os.listdir(image_dir)
     videoids = [
         videoname.replace('_video.mov', '') for videoname in video_list
@@ -455,7 +459,7 @@ def group_stanford_images(image_dir,
     }
 
     for category in ['positive', 'negative']:
-        print('gathering images for category {}'.format(category))
+        logger.debug('gathering images for category {}'.format(category))
         category_output_dir = os.path.join(output_dir, category)
         io_util.create_dir_if_not_exist(category_output_dir)
         mask = annotation.get_positive_annotation_mask(annotations)
@@ -476,12 +480,12 @@ def group_stanford_images(image_dir,
             unique_target_tuples = np.asarray(list(negative_set))
 
         qualified_num = len(unique_target_tuples)
-        print('category {} has {} qualified frames'.format(
+        logger.debug('category {} has {} qualified frames'.format(
             category, qualified_num))
         tuples_indices = range(qualified_num)
         random.shuffle(tuples_indices)
         sample_num = sample_num_lut[category]
-        print('sampling {} frames'.format(sample_num))
+        logger.debug('sampling {} frames'.format(sample_num))
         sample_indices = tuples_indices[:sample_num]
         samples = unique_target_tuples[sample_indices]
         # extracted frame images starts from 1
@@ -597,7 +601,7 @@ def resize_frame_sequence_by_id(video_dir, output_dir, video_id, long_edge,
     if type(video_id) is int:
         video_id = '{:02d}'.format(video_id)
     frame_sequence_name = video_id
-    print('working on {}'.format(frame_sequence_name))
+    logger.debug('working on {}'.format(frame_sequence_name))
     output_frame_sequence_dir = os.path.join(output_dir, frame_sequence_name)
     io_util.create_dir_if_not_exist(output_frame_sequence_dir)
     video_file_paths = glob.glob(
@@ -647,36 +651,84 @@ def resize_stanford_frame_sequence(video_dir,
             cv2.imwrite(dst_file_path, resized_im)
 
 
-OKUTAMA_TRAIN_VIDEOS = [
-    '1.1.3', '1.1.2', '1.1.5', '1.1.4', '2.2.7', '2.1.7', '2.1.4', '2.2.11',
-    '1.1.10'
-]
-OKUTAMA_TEST_VIDEOS = ['2.2.2', '2.2.4', '1.1.7']
+def sample_train_test_frames_with_extra_negative(
+        dataset_name, tile_classification_annotation_dir, sample_num_per_video,
+        video_ids, extra_negative_dataset_names,
+        extra_negative_annotation_dirs, extra_negative_sample_num_per_video,
+        extra_negative_video_ids, output_file_path):
+    normal_sample_ids = _sample_positive_and_negative(
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        video_ids,
+        image_id_format_func=(
+            lambda image_id: os.path.join(dataset_name, image_id)))
+    extra_negative_ids = []
+    for idx, extra_negative_annotation_dir in enumerate(
+            extra_negative_annotation_dirs):
+        extra_negative_ids.extend(
+            _sample_negative(
+                extra_negative_annotation_dir,
+                extra_negative_sample_num_per_video,
+                extra_negative_video_ids[idx],
+                image_id_format_func=lambda image_id: os.path.join(
+                    extra_negative_dataset_names[idx], image_id)
+            ))
+    sample_ids = normal_sample_ids
+    sample_ids['negative'].extend(extra_negative_ids)
+    assert len(sample_ids['negative']) > len(sample_ids['positive'])
+    logger.debug(
+        'total positive: {}, total negative: {}, neg-to-pos ratio: {}'.format(
+            len(sample_ids['positive']), len(sample_ids['negative']),
+            len(sample_ids['negative']) / len(sample_ids['positive'])))
+    with open(output_file_path, 'wb') as f:
+        pickle.dump(sample_ids, f)
 
 
-def sample_train_test_frames(tile_classification_annotation_dir,
-                             sample_num_per_video, output_file_path,
-                             video_ids):
-    print('loading tile annotations from {}'.format(
+def _sample_negative(tile_classification_annotation_dir,
+                     sample_num_per_video,
+                     video_ids,
+                     image_id_format_func=lambda image_id: image_id):
+    logger.debug(
+        'sample negative tile annotations from {} for video {}'.format(
+            tile_classification_annotation_dir, video_ids))
+    negative_ids = []
+    for video_id in video_ids:
+        image_id_to_classification_label = (io_util.load_all_pickles_from_dir(
+            tile_classification_annotation_dir, video_ids=[video_id]))
+        negative_image_ids = ([
+            image_id_format_func(k)
+            for k, v in image_id_to_classification_label.items() if not v
+        ])
+        random.shuffle(negative_image_ids)
+        sample_num_cur_video = np.min(
+            [sample_num_per_video,
+             len(negative_image_ids)])
+        logger.debug('{} has {} negative images. sampling {} images'.format(
+            video_id, len(negative_image_ids), sample_num_cur_video))
+        negative_ids.extend(negative_image_ids[:sample_num_cur_video])
+    return negative_ids
+
+
+def _sample_positive_and_negative(
+        tile_classification_annotation_dir,
+        sample_num_per_video,
+        video_ids,
+        image_id_format_func=lambda image_id: image_id):
+    logger.debug('loading tile annotations from {}'.format(
         tile_classification_annotation_dir))
 
     total_sample_ids = collections.defaultdict(list)
     for video_id in video_ids:
-        image_id_to_classification_label = (
-            io_util.load_all_pickles_from_dir(
-                tile_classification_annotation_dir, video_ids=[video_id]))
+        image_id_to_classification_label = (io_util.load_all_pickles_from_dir(
+            tile_classification_annotation_dir, video_ids=[video_id]))
         positive_image_ids = ([
-            k for k, v in image_id_to_classification_label.items() if v
+            image_id_format_func(k)
+            for k, v in image_id_to_classification_label.items() if v
         ])
         negative_image_ids = ([
-            k for k, v in image_id_to_classification_label.items() if not v
+            image_id_format_func(k)
+            for k, v in image_id_to_classification_label.items() if not v
         ])
-        print(
-            '{} total tiles: {}, total positive images: {}, total negative images {}'.
-            format(video_id,
-                   len(positive_image_ids) + len(negative_image_ids),
-                   len(positive_image_ids), len(negative_image_ids)))
-
         random.shuffle(positive_image_ids)
         random.shuffle(negative_image_ids)
         sample_num_cur_video = np.min([
@@ -684,12 +736,24 @@ def sample_train_test_frames(tile_classification_annotation_dir,
             len(positive_image_ids),
             len(negative_image_ids)
         ])
-        print('sampling {} images for each class'.format(sample_num_cur_video))
+        logger.debug(
+            '{} total tiles: {}, positive images: {}, negative images: {}, sample images per class: {}'.
+            format(video_id,
+                   len(positive_image_ids) + len(negative_image_ids),
+                   len(positive_image_ids), len(negative_image_ids),
+                   sample_num_cur_video))
         total_sample_ids['positive'].extend(
             positive_image_ids[:sample_num_cur_video])
         total_sample_ids['negative'].extend(
             negative_image_ids[:sample_num_cur_video])
+    return total_sample_ids
 
+
+def sample_train_test_frames(tile_classification_annotation_dir,
+                             sample_num_per_video, output_file_path,
+                             video_ids):
+    total_sample_ids = _sample_positive_and_negative(
+        tile_classification_annotation_dir, sample_num_per_video, video_ids)
     output_dir = os.path.dirname(output_file_path)
     io_util.create_dir_if_not_exist(output_dir)
     with open(output_file_path, 'wb') as f:

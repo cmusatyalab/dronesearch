@@ -1041,21 +1041,15 @@ def get_stanford_tile_classification_annotation(
 def get_dataset_tile_classification_annotation(
         dataset_name, annotation_dir, resized_long_edge, resized_short_edge,
         tile_width, tile_height, output_dir):
-    assert dataset_name in ["elephant", "raft"]
-    func_load_annotation_dir = io_util.load_stanford_campus_annotation
+    assert dataset_name in annotation_stats.dataset
+    func_load_annotation_dir = annotation_stats.dataset[dataset_name][
+        'annotation_func']
     video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
         'video_id_to_original_resolution']
     video_id_to_frame_num = annotation_stats.dataset[dataset_name][
         'video_id_to_frame_num']
     labels = annotation_stats.dataset[dataset_name]['labels']
     video_ids = annotation_stats.dataset[dataset_name]['video_ids']
-    # elif dataset_name == "raft":
-    #     func_load_annotation_dir = io_util.load_stanford_campus_annotation,
-    #     video_id_to_original_resolution = (
-    #         stanford_video_id_to_original_resolution),
-    #     video_id_to_frame_num = stanford_video_to_frame_num,
-    #     labels = ['Car', 'Bus'],
-    #     video_ids = stanford_train_videos + stanford_test_videos
 
     return get_tile_classification_annotation(
         annotation_dir=annotation_dir,
