@@ -11,6 +11,7 @@ import os
 from StringIO import StringIO
 
 import matplotlib
+
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import PIL.Image
@@ -19,11 +20,34 @@ from sklearn.metrics import confusion_matrix
 from sklearn.utils import resample
 import pandas as pd
 
-from result_analysis import datasets as result_datasets
+# from result_analysis import datasets as result_datasets
 from annotation_stats import dataset as dataset_stats
 from io_util import load_all_pickles_from_dir
 
 np.random.seed(42)
+
+datasets = {
+    'elephant':
+        ('elephant/annotations',
+         'elephant/classification_448_224_224_224_annotations',
+         'elephant/experiments/classification_448_224_224_224_extra_negative/test_inference'
+         ),
+    'raft':
+        ('raft/annotations', 'raft/classification_448_224_224_224_annotations',
+         'raft/experiments/classification_448_224_224_224_extra_negative/test_inference'
+         ),
+    'okutama':
+        ('okutama/annotations',
+         'okutama/classification_448_224_224_224_annotations',
+         'okutama/experiments/classification_448_224_224_224_extra_negative/test_inference'
+         ),
+    'stanford':
+        ('stanford/annotations',
+         'stanford/classification_448_224_224_224_annotations',
+         'stanford/experiments/classification_448_224_224_224_extra_negative/test_inference'
+         ),
+}
+result_datasets = datasets
 
 
 def _get_videoid(image_id):
@@ -126,7 +150,8 @@ def make_jitl_dataframe(dataset,
     :return:
     """
 
-    df = _parse_tile_annotation_and_inference_pre_logit(os.path.join(base_dir, result_datasets[dataset][1]),
+    df = _parse_tile_annotation_and_inference_pre_logit(dataset,
+                                                        os.path.join(base_dir, result_datasets[dataset][1]),
                                                         os.path.join(base_dir, result_datasets[dataset][2]),
                                                         interested_videoids=dataset_stats[dataset]['test'])
 
@@ -145,9 +170,11 @@ def make_jitl_dataframe(dataset,
         df.to_pickle(output_file)
 
 
-def _parse_tile_annotation_and_inference_pre_logit(tile_classification_annotation_dir,
+def _parse_tile_annotation_and_inference_pre_logit(dataset,
+                                                   tile_classification_annotation_dir,
                                                    tile_test_inference_dir,
-                                                   interested_videoids):
+                                                   interested_videoids,
+                                                   extra_negative=True):
     print("Interested video IDs: {}".format(','.join(interested_videoids)))
     tile_ground_truth = load_all_pickles_from_dir(tile_classification_annotation_dir)
     print("Loaded {} results from  annotation: {} ".format(len(tile_ground_truth), tile_classification_annotation_dir))
@@ -156,16 +183,23 @@ def _parse_tile_annotation_and_inference_pre_logit(tile_classification_annotatio
                               if _get_videoid(k) in interested_videoids])
     print("Filter {} for interested videos".format(len(tile_ground_truth)))
 
-    tile_inference_result_and_pre_logit = load_all_pickles_from_dir(tile_test_inference_dir)
+    tile_inference_result_and_pre_logit = load_all_pickles_from_dir(tile_test_inference_dir,
+                                                                    prefix=dataset if extra_negative else '')
     print(
         "Loaded {} results from inference: {}".format(len(tile_inference_result_and_pre_logit),
                                                       tile_test_inference_dir))
 
     # filter image ids in interested videos and
     # XXX bring down 1-off frame ids!
-    tile_inference_result_and_pre_logit = dict((_increment_frame_id(k, decrement=True), v)
-                                               for k, v in tile_inference_result_and_pre_logit.iteritems()
-                                               if _get_videoid(k) in interested_videoids)
+    if not extra_negative:
+        tile_inference_result_and_pre_logit = dict((_increment_frame_id(k, decrement=True), v)
+                                                   for k, v in tile_inference_result_and_pre_logit.iteritems()
+                                                   if _get_videoid(k) in interested_videoids)
+    else:
+        tile_inference_result_and_pre_logit = dict((_increment_frame_id(k.split('/', 1)[1], decrement=True), v)
+                                                   for k, v in tile_inference_result_and_pre_logit.iteritems()
+                                                   if k.startswith(dataset + '/') and _get_videoid(
+            k.split('/', 1)[1]) in interested_videoids)
     print("Filter {} for interested videos".format(len(tile_inference_result_and_pre_logit)))
 
     imageids = tile_ground_truth.keys()
