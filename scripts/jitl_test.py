@@ -16,13 +16,10 @@ from sklearn.svm import SVC
 
 from jitl_data import _split_imageid, _get_videoid
 
-from result_analysis import datasets as result_datasets
-from annotation_stats import dataset as dataset_stats
-
 
 def eval_jit_svm_on_dataset(jit_data_file,
                             output_file,
-                            dnn_cutoff_list=tuple([0.9 + 0.01 * x for x in range(0, 10)]),
+                            dnn_cutoff_list=tuple([0.8 + 0.02 * x for x in range(0, 10)]),
                             delta_t=10,
                             activate_threshold=5):
     df = pd.read_pickle(jit_data_file)

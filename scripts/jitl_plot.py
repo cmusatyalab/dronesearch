@@ -12,8 +12,8 @@ import annotation
 import matplotlib
 import collections
 
-import result_analysis
 from jitl_data import _split_imageid
+from jitl_data import datasets
 
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
@@ -61,12 +61,12 @@ def frames_vs_dnn_cutoff(jitl_data_file,
 
     print("Plotting")
     ax1.plot(df['dnn_cutoff'], df['n_dnn_fire'], 'b-', label="DNN all")
-    ax1.plot(df['dnn_cutoff'], df['n_dnn_tp'], 'b--', label="DNN positive")
+    ax1.plot(df['dnn_cutoff'], df['n_dnn_tp'], 'b--', label="DNN true positive")
     ax1.plot(df['dnn_cutoff'], df['n_jitl_fire'], 'r-', label="JITL all")
-    ax1.plot(df['dnn_cutoff'], df['n_jitl_tp'], 'r--', label="JITL positive")
+    ax1.plot(df['dnn_cutoff'], df['n_jitl_tp'], 'r--', label="JITL true positive")
     ax1.set_ylim(bottom=0)
 
-    plt.legend()
+    plt.legend(loc='lower right')
     if savefig:
         plt.savefig(savefig)
 
@@ -134,7 +134,7 @@ def frames_vs_event_recall(base_dir,
 
     ax1.set_ylim(bottom=0)
 
-    plt.legend()
+    plt.legend(loc='lower right')
     if savefig:
         plt.savefig(savefig)
 
@@ -145,7 +145,7 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file):
     load_annotation_func = annotation_stats.dataset[dataset][
         'annotation_func']
     labels = annotation_stats.dataset[dataset]['labels']
-    annotation_dir = os.path.join(base_dir, result_analysis.datasets[dataset][0])
+    annotation_dir = os.path.join(base_dir, datasets[dataset][0])
     annotations = load_annotation_func(annotation_dir)
     test_video_ids = annotation_stats.dataset[dataset]['test']
     annotations = annotations[annotations['videoid'].isin(test_video_ids)]
