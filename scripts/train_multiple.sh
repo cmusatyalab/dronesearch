@@ -20,8 +20,8 @@ do
     RESIZED_SHORT_EDGE=224
     TILE_WIDTH=224
     TILE_HEIGHT=224
-    LAST_LAYER_MAX_STEP=10
-    ALL_LAYER_MAX_STEP=20
+    LAST_LAYER_MAX_STEP=20000
+    ALL_LAYER_MAX_STEP=40000
     PRETRAINED_CHECKPOINT_DIR=/home/junjuew/mobisys18/pretrained_models/mobilenet_ckpt
 
     TRAIN_PYENV_PATH=$DIR/../pyenv
@@ -37,7 +37,7 @@ do
     source $TRAIN_PYENV_PATH/bin/activate
     cd mobilenet/research/slim
     cat > scripts/finetune_mobilenet_v1_on_twoclass.shrc <<EOL
-TRAIN_LAST_LAYER=true
+TRAIN_LAST_LAYER=false
 TRAIN_ALL_LAYER=true
 PRETRAINED_CHECKPOINT_DIR="${PRETRAINED_CHECKPOINT_DIR}"
 DATASET_DIR="${EXPERIMENT_DIR}"
