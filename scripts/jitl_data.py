@@ -118,6 +118,7 @@ def visualize_tp_fp(tile_classification_annotation_file,
 
     print(fp_sample_index, tp_sample_index)
 
+    # TODO check if use of itemgetter is buggy when index is singleton
     fp_imageids = itemgetter(*fp_sample_index)(sorted_imageids)
     tp_imageids = itemgetter(*tp_sample_index)(sorted_imageids)
 

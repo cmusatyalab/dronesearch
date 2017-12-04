@@ -1,5 +1,4 @@
 import itertools
-from operator import itemgetter
 
 import fire
 import os
@@ -22,34 +21,49 @@ from matplotlib import pyplot as plt
 def frames_vs_dnn_cutoff(jitl_data_file,
                          jitl_result_file,
                          savefig=None):
-    data_df = pd.read_pickle(jitl_data_file)
-    result_df = pd.read_pickle(jitl_result_file)
+    cache_file = None
+    if savefig:
+        cache_file = savefig + '-frames_vs_dnn_cutoff.cache'
 
-    dnn_cutoff_grps = result_df.groupby(['dnn_cutoff'])
+    if savefig and os.path.exists(cache_file) \
+        and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file) \
+            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_data_file):
+        print("Plot loading cache {}".format(cache_file))
+        df = pd.read_pickle(cache_file)
 
-    df = pd.DataFrame()
-    for dnn_cutoff, results in dnn_cutoff_grps:
-        print(dnn_cutoff)
-        print(results)
-        results['label'] = results['imageids'].map(
-            lambda x: [data_df[data_df['imageid'] == imgid]['label'].iat[0] for imgid in x])
+    else:
+        data_df = pd.read_pickle(jitl_data_file)
+        result_df = pd.read_pickle(jitl_result_file)
 
-        n_dnn_fire = results['label'].map(lambda x: len(x)).sum()
-        n_dnn_tp = results['label'].map(lambda x: np.count_nonzero(x)).sum()
-        assert n_dnn_tp < n_dnn_fire
-        n_jitl_fire = results['jitl_prediction'].map(lambda x: np.count_nonzero(x)).sum()
-        assert n_jitl_fire <= n_dnn_fire
-        n_jitl_tp = results.apply(
-            lambda row: np.count_nonzero(np.logical_and(row['jitl_prediction'], row['label'])), axis=1).sum()
-        assert n_jitl_tp <= n_jitl_fire
+        dnn_cutoff_grps = result_df.groupby(['dnn_cutoff'])
 
-        df = df.append({
-            'dnn_cutoff': dnn_cutoff,
-            'n_dnn_fire': n_dnn_fire,
-            'n_dnn_tp': n_dnn_tp,
-            'n_jitl_fire': n_jitl_fire,
-            'n_jitl_tp': n_jitl_tp
-        }, ignore_index=True)
+        df = pd.DataFrame()
+        for dnn_cutoff, results in dnn_cutoff_grps:
+            print(dnn_cutoff)
+            print(results)
+            results['label'] = results['imageids'].map(
+                lambda x: [data_df[data_df['imageid'] == imgid]['label'].iat[0] for imgid in x])
+
+            n_dnn_fire = results['label'].map(lambda x: len(x)).sum()
+            n_dnn_tp = results['label'].map(lambda x: np.count_nonzero(x)).sum()
+            assert n_dnn_tp < n_dnn_fire
+            n_jitl_fire = results['jitl_prediction'].map(lambda x: np.count_nonzero(x)).sum()
+            assert n_jitl_fire <= n_dnn_fire
+            n_jitl_tp = results.apply(
+                lambda row: np.count_nonzero(np.logical_and(row['jitl_prediction'], row['label'])), axis=1).sum()
+            assert n_jitl_tp <= n_jitl_fire
+
+            df = df.append({
+                'dnn_cutoff': dnn_cutoff,
+                'n_dnn_fire': n_dnn_fire,
+                'n_dnn_tp': n_dnn_tp,
+                'n_jitl_fire': n_jitl_fire,
+                'n_jitl_tp': n_jitl_tp
+            }, ignore_index=True)
+
+            if cache_file:
+                print("Plot writing cache {}".format(cache_file))
+                df.to_pickle(cache_file)
 
     print("Will be plotting from ...")
     print(df)
@@ -66,8 +80,9 @@ def frames_vs_dnn_cutoff(jitl_data_file,
     ax1.plot(df['dnn_cutoff'], df['n_jitl_tp'], 'r--', label="JITL true positive")
     ax1.set_ylim(bottom=0)
 
-    plt.legend(loc='lower right')
+    plt.legend(loc='upper left')
     if savefig:
+        print("Saving figure to {}".format(savefig))
         plt.savefig(savefig)
 
     plt.show()
@@ -98,6 +113,7 @@ def event_recall_vs_dnn_cutoff(base_dir,
 
     plt.legend()
     if savefig:
+        print("Saving figure to {}".format(savefig))
         plt.savefig(savefig)
 
     plt.show()
@@ -109,7 +125,20 @@ def frames_vs_event_recall(base_dir,
                            savefig=None):
     assert dataset in annotation_stats.dataset.keys()
 
-    df = _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file)
+    cache_file = None
+    if savefig:
+        cache_file = savefig + '-frames_vs_event_recall.cache'
+
+    if cache_file and os.path.exists(cache_file) \
+            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file):
+        print("Plot loading cache {}".format(cache_file))
+        df = pd.read_pickle(cache_file)
+
+    else:
+        df = _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file)
+        if cache_file:
+            print("Plot writing cache {}".format(cache_file))
+            df.to_pickle(cache_file)
 
     print("Will be plotting from ...")
     print(df)
@@ -124,18 +153,19 @@ def frames_vs_event_recall(base_dir,
     df1['dnn_event_recall'] = df1.index
     df1 = df1.sort_values(by=['dnn_event_recall'])
     # df1 = df1.sort_index()
-    ax1.plot(df1['dnn_event_recall'], df1['dnn_fired_frames'], 'b-', label='DNN')
+    ax1.plot(df1['dnn_event_recall'], df1['dnn_fired_frames'], 'bo-', label='DNN')
 
     df1 = df[['jitl_event_recall', 'jitl_fired_frames']]
     df1 = df1.groupby(['jitl_event_recall']).aggregate(min)
     df1['jitl_event_recall'] = df1.index
     df1 = df1.sort_values(by=['jitl_event_recall'])
-    ax1.plot(df1['jitl_event_recall'], df1['jitl_fired_frames'], 'r-', label='JITL')
+    ax1.plot(df1['jitl_event_recall'], df1['jitl_fired_frames'], 'ro-', label='JITL')
 
     ax1.set_ylim(bottom=0)
 
     plt.legend(loc='lower right')
     if savefig:
+        print("Saving figure to {}".format(savefig))
         plt.savefig(savefig)
 
     plt.show()
@@ -160,7 +190,7 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file):
             video_id = row['videoid']
             frame_id = row['frameid']
             video_frame_to_uniq_track_id[(video_id, frame_id)].append(track_id)
-    print("Parsed annoation. Found {} unique track IDs in {}.".format(
+    print("Parsed annotations. Found {} unique track IDs in {}.".format(
         len(track_annotations_grp), ','.join(test_video_ids)))
     jitl_results = pd.read_pickle(jitl_result_file)
     # Starting analyzing event recall
@@ -169,7 +199,7 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file):
     all_unique_trakc_ids = set(track_annotations_grp.groups.keys())
     for dnn_cutoff, results in dnn_cutoff_grps:
         results['jitl_fired_imageids'] = results.apply(
-            lambda row: itemgetter(*np.nonzero(row['jitl_prediction'])[0])(row['imageids']),
+            lambda row: [row['imageids'][ind] for ind in np.nonzero(row['jitl_prediction'])[0]],
             axis=1)
         dnn_fired_imageids = list(itertools.chain.from_iterable(results['imageids']))
         jitl_fired_imageids = list(itertools.chain.from_iterable(results['jitl_fired_imageids']))

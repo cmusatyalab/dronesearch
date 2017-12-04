@@ -19,9 +19,12 @@ from jitl_data import _split_imageid, _get_videoid
 
 def eval_jit_svm_on_dataset(jit_data_file,
                             output_file,
-                            dnn_cutoff_list=tuple([0.8 + 0.02 * x for x in range(0, 10)]),
+                            dnn_cutoff_start=80,
+                            dnn_cutoff_end=100,
+                            dnn_cutoff_step=2,
                             delta_t=10,
                             activate_threshold=5):
+    dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
     df = pd.read_pickle(jit_data_file)
     df['videoid'] = df['imageid'].map(lambda x: _get_videoid(x))
     df['frameid'] = df['imageid'].map(lambda imgid: _split_imageid(imgid)[1]).astype(int)
