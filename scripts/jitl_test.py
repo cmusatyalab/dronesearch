@@ -22,7 +22,7 @@ from annotation_stats import dataset as dataset_stats
 
 def eval_jit_svm_on_dataset(jit_data_file,
                             output_file,
-                            dnn_cutoff_list=tuple([0.01 * x for x in range(0, 101, 10)]),
+                            dnn_cutoff_list=tuple([0.01 * x for x in range(10, 100, 10)]),
                             delta_t=10,
                             activate_threshold=5):
     df = pd.read_pickle(jit_data_file)
@@ -49,7 +49,7 @@ def eval_jit_svm_on_dataset(jit_data_file,
         result_df.to_pickle(output_file)
 
 
-def run_once_jit_svm_on_video(df, video_id, dnn_cutoff, delta_t=10, activate_threshold=5):
+def run_once_jit_svm_on_video(df, video_id, dnn_cutoff, delta_t=10, activate_threshold=5, svm_cutoff=0.3):
     # filter df by video id
     df = df[df['videoid'] == video_id]
     # print df.iloc[0]
@@ -91,7 +91,9 @@ def run_once_jit_svm_on_video(df, video_id, dnn_cutoff, delta_t=10, activate_thr
 
         # Do we have an SVM to use?
         if clf:
-            predictions = clf.predict(X_test)
+            smv_proba = clf.predict_proba(X_test)
+            predictions = (smv_proba[:, 1] >= svm_cutoff)
+            # predictions = clf.predict(X_test)
         else:  # pass-through DNN's prediction (DNN says all are positive)
             predictions = np.ones_like(y_test)
 
