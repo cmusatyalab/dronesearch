@@ -236,6 +236,7 @@ def analyze_event_metrics_on_video(
 
     detected_tracks = {}
     all_tracks = []
+    track_length = []
     for track_id, track_annotations in track_annotations_grp:
         sorted_track_annotations = track_annotations.sort_values('frameid')
         start_frame = min(sorted_track_annotations['frameid'])
@@ -250,6 +251,7 @@ def analyze_event_metrics_on_video(
         videoid = videoid[0]
         print('video id: {}, track id: {}, start frame: {}, end frame: {}'.
               format(videoid, track_id, start_frame, end_frame))
+        track_length.append(end_frame - start_frame + 1)
 
         for index, row in sorted_track_annotations.iterrows():
             tile_detected = _has_tile_fired(
@@ -274,6 +276,8 @@ def analyze_event_metrics_on_video(
            'detected tracks (assuming 30FPS): {:.2f}({:.2f})').format(
                np.mean(detected_tracks.values()) / 30.0,
                np.std(detected_tracks.values()) / 30.0))
+    track_length.sort()
+    print('track length: {}'.format(track_length))
 
 
 def _get_keys_by_id_prefix(my_dict, key_prefix, default_prefix_separator='_'):
