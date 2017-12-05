@@ -22,20 +22,20 @@ if true; then
     python jitl_test.py eval_jit_svm_on_dataset \
         --jit_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
         --output_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
-        --dnn_cutoff_start 0 \
+        --dnn_cutoff_start 5 \
         --dnn_cutoff_end 100 \
-        --dnn_cutoff_step 10 \
+        --dnn_cutoff_step 20 \
         | tee ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log/eval_jit_svm_${DATASET}.log
 fi
 
 # Plot
 if true; then
-#    echo ""
-#    echo "Plotting frames vs DNN cutoff"
-#    python jitl_plot.py frames_vs_dnn_cutoff \
-#        --jitl_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
-#        --jitl_result_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
-#        --savefig ${MY_BASE_DIR}/experiments/jitl/figure/fig-jitl-${DATASET}-frame.pdf
+    echo ""
+    echo "Plotting frames vs DNN cutoff"
+    python jitl_plot.py frames_vs_dnn_cutoff \
+        --jitl_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
+        --jitl_result_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
+        --savefig ${MY_BASE_DIR}/experiments/jitl/figure/fig-jitl-${DATASET}-frame.pdf
 
     echo ""
     echo "Plotting frames vs event recall"
