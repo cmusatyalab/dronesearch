@@ -1070,9 +1070,13 @@ def get_dataset_tile_classification_annotation(
         video_ids=video_ids)
 
 
-def get_okutama_event_stats():
-    dataset_name = 'okutama'
-    annotation_dir = 'okutama/annotations'
+def get_track_iter(annotations):
+    track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
+    for track_id, track_annotations in track_annotations_grp:
+        yield track_id, track_annotations
+
+
+def load_and_filter_dataset_test_annotation(dataset_name, annotation_dir):
     labels = annotation_stats.dataset[dataset_name]['labels']
     video_ids = annotation_stats.dataset[dataset_name]['test']
     func_load_annotation_dir = annotation_stats.dataset[dataset_name][
@@ -1082,10 +1086,17 @@ def get_okutama_event_stats():
     annotations = annotations[annotations['videoid'].isin(video_ids)]
     annotations['imageid'] = (
         annotations['videoid'] + '_' + annotations['frameid'].astype(str))
+    return annotations
 
-    track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
+
+def get_okutama_event_stats():
+    dataset_name = 'okutama'
+    annotation_dir = 'okutama/annotations'
+    annotations = load_and_filter_dataset_test_annotation(
+        dataset_name, annotation_dir)
     action_to_track_id = collections.defaultdict(list)
-    for track_id, track_annotations in track_annotations_grp:
+    track_iter = get_track_iter(annotations)
+    for track_id, track_annotations in track_iter:
         actions = list(set(track_annotations['action']))
         actions = [
             value for value in actions

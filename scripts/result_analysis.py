@@ -15,12 +15,14 @@ import fire
 import io_util
 import matplotlib
 import redis
-
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sklearn.metrics
-
 from itertools import izip_longest
+
+import logzero
+from logzero import logger
+logzero.logfile("result_analysis.log", maxBytes=1e6, backupCount=3, mode='a')
 
 
 def plot_precision_recall_curve(y_true, probas_pred, output_file_path):
@@ -716,6 +718,56 @@ def analyze_event_recall_on_video(annotation_dir,
             track_to_fire_thresholds[track_id].extend(tile_fire_thresholds)
     predictions_thresholds = {k: v[1] for k, v in predictions.items()}
     return track_to_fire_thresholds, predictions_thresholds, tile_annotations
+
+
+def get_okutama_action_prediction_stats(output_dir,
+                                        action='Walking',
+                                        long_edge_ratio=0.5,
+                                        short_edge_ratio=1):
+    dataset_name = 'okutama'
+    annotation_dir = 'okutama/annotations'
+    annotations = annotation.load_and_filter_dataset_test_annotation(
+        dataset_name, annotation_dir)
+    annotations = annotations[annotations['action'] == action]
+    track_iter = annotation.get_track_iter(annotations)
+
+    result_dir = datasets[dataset_name][2]
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
+        'video_id_to_original_resolution']
+
+    track_to_fire_thresholds = collections.defaultdict(list)
+    track_to_event_interval = collections.defaultdict(tuple)
+    for track_id, track_annotations in track_iter:
+        logger.debug('working on {}'.format(track_id))
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        videoid = list(set(sorted_track_annotations['videoid']))
+        assert len(videoid) == 1
+        videoid = videoid[0]
+        image_resolution = video_id_to_original_resolution[videoid]
+        start_frame = min(sorted_track_annotations['frameid'])
+        end_frame = max(sorted_track_annotations['frameid'])
+        track_to_event_interval[track_id] = (start_frame, end_frame)
+        for index, row in sorted_track_annotations.iterrows():
+            tile_fire_thresholds = _get_positive_tile_proba(
+                image_resolution,
+                predictions,
+                row,
+                long_edge_ratio,
+                short_edge_ratio,
+                prediction_id_prefix=dataset_name + '/')
+            # did not use extend here because for event
+            # we want to use continuous frames instead of tiles
+            track_to_fire_thresholds[track_id].append(
+                min(tile_fire_thresholds))
+    io_util.create_dir_if_not_exist(output_dir)
+    output = {}
+    output['track_to_fire_thresholds'] = track_to_fire_thresholds
+    output['track_to_event_interval'] = track_to_event_interval
+    with open(
+            os.path.join(output_dir, '{}_event_recall.pkl'.format(action)),
+            'wb') as f:
+        pickle.dump(output, f)
 
 
 if __name__ == '__main__':
