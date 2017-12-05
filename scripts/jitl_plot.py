@@ -22,64 +22,20 @@ from matplotlib import pyplot as plt
 matplotlib.rcParams.update({'font.size': 16})
 
 
-def precision_vs_dnn_cutoff(jitl_data_file,
-                            jitl_result_file,
-                            savefig=None):
-    cache_file = None
-    if savefig:
-        cache_file = savefig + '-precision_vs_dnn_cutoff.cache'
-
-    if savefig and os.path.exists(cache_file) \
-            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file) \
-            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_data_file):
-        print("Plot loading cache {}".format(cache_file))
-        df = pd.read_pickle(cache_file)
-
-    else:
-        df = _calc_dnn_cutoff_frames_tp_dataframe(jitl_data_file, jitl_result_file)
-
-        if cache_file:
-            print("Plot writing cache {}".format(cache_file))
-            df.to_pickle(cache_file)
-
-    print("Will be plotting from ...")
-    print(df)
-
-    fig, ax2 = plt.subplots()
-    plt.gca().invert_xaxis()
-
-    print("Plotting")
-
-    # Plot precision TP/(TP+FP)
-    df['dnn_precision'] = (np.array(df['n_dnn_tp']) / np.array(df['n_dnn_fire'])).tolist()
-    df['jitl_precision'] = (np.array(df['n_jitl_tp']) / np.array(df['n_jitl_fire'])).tolist()
-    ax2.plot(df['dnn_cutoff'], df['dnn_precision'], 'b:', label="DNN precision")
-    ax2.plot(df['dnn_cutoff'], df['jitl_precision'], 'r:', label="JITL precision")
-    ax2.set_ylim(bottom=0, top=1)
-
-    plt.legend(loc='lower right')
-    if savefig:
-        print("Saving figure to {}".format(savefig))
-        plt.savefig(savefig)
-
-    plt.show()
-
-
-def frames_vs_dnn_cutoff(jitl_data_file,
-                         jitl_result_file,
+def frames_vs_dnn_cutoff(jitl_result_file,
                          savefig=None):
     cache_file = None
     if savefig:
         cache_file = savefig + '-frames_vs_dnn_cutoff.cache'
 
-    if savefig and os.path.exists(cache_file) \
-            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file) \
-            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_data_file):
+    if savefig \
+            and os.path.exists(cache_file) \
+            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file):
         print("Plot loading cache {}".format(cache_file))
         df = pd.read_pickle(cache_file)
 
     else:
-        df = _calc_dnn_cutoff_frames_tp_dataframe(jitl_data_file, jitl_result_file)
+        df = _calc_dnn_cutoff_frames_tp_dataframe(jitl_result_file)
 
         if cache_file:
             print("Plot writing cache {}".format(cache_file))
@@ -117,16 +73,13 @@ def frames_vs_dnn_cutoff(jitl_data_file,
     plt.show()
 
 
-def _calc_dnn_cutoff_frames_tp_dataframe(jitl_data_file, jitl_result_file):
-    data_df = pd.read_pickle(jitl_data_file)
+def _calc_dnn_cutoff_frames_tp_dataframe(jitl_result_file):
     result_df = pd.read_pickle(jitl_result_file)
     dnn_cutoff_grps = result_df.groupby(['dnn_cutoff'])
     df = pd.DataFrame()
     for dnn_cutoff, results in dnn_cutoff_grps:
         print(dnn_cutoff)
         print(results)
-        results['label'] = results['imageids'].map(
-            lambda x: [data_df[data_df['imageid'] == imgid]['label'].iat[0] for imgid in x])
 
         n_dnn_fire = results['label'].map(lambda x: len(x)).sum()
         n_dnn_tp = results['label'].map(lambda x: np.count_nonzero(x)).sum()
@@ -224,6 +177,8 @@ def frames_vs_event_recall(base_dir,
     if random_drop:
         df1 = df[['random_drop_event_recall', 'random_drop_fired_frames']]
         df1 = df1.groupby(['random_drop_event_recall']).aggregate(min)  # crunch duplicated recall values
+        print("Random drop result:")
+        print(df1)
         df1['random_drop_event_recall'] = df1.index
         df1 = df1.sort_values(by=['random_drop_event_recall'])
         ax1.plot(df1['random_drop_event_recall'], df1['random_drop_fired_frames'], 'g-', label='Random Drop')

@@ -17,14 +17,18 @@ if false; then
 fi
 
 # Run simulation
+# Best config
+# Okutama: dnn_cutoff=0.9~1.0. svm_cutoff=?
+# Best svm_cutoff with StealPositiveFromVideoEnd: raft=0.1
 if true; then
     mkdir -p ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log
     python jitl_test.py eval_jit_svm_on_dataset \
         --jit_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
         --output_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
-        --dnn_cutoff_start 5 \
+        --dnn_cutoff_start 90 \
         --dnn_cutoff_end 100 \
-        --dnn_cutoff_step 20 \
+        --dnn_cutoff_step 1 \
+        --svm_cutoff 0.1 \
         | tee ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log/eval_jit_svm_${DATASET}.log
 fi
 
@@ -33,7 +37,6 @@ if true; then
     echo ""
     echo "Plotting frames vs DNN cutoff"
     python jitl_plot.py frames_vs_dnn_cutoff \
-        --jitl_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
         --jitl_result_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
         --savefig ${MY_BASE_DIR}/experiments/jitl/figure/fig-jitl-${DATASET}-frame.pdf
 

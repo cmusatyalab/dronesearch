@@ -13,8 +13,24 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
+from sklearn.utils import resample
 
 from jitl_data import _split_imageid, _get_videoid
+
+
+class StealPositiveFromVideoEnd(object):
+    def __init__(self, df, video_id, tail=10):
+        super(StealPositiveFromVideoEnd, self).__init__()
+
+        df = df[(df['videoid'] == video_id) & (df['label'].astype(bool))]
+        df = df.sort_values(by=['frameid'])
+        print("Will steal these positives:")
+        print(df.iloc[-tail:])
+        self.features = np.array(df.iloc[-tail:]['feature'].tolist())
+
+    def __call__(self, n=5):
+        samples = resample(self.features, n_samples=n, replace=False)
+        return samples
 
 
 def eval_jit_svm_on_dataset(jit_data_file,
@@ -23,7 +39,8 @@ def eval_jit_svm_on_dataset(jit_data_file,
                             dnn_cutoff_end=100,
                             dnn_cutoff_step=2,
                             delta_t=10,
-                            activate_threshold=5):
+                            activate_threshold=5,
+                            svm_cutoff=0.3):
     dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
     df = pd.read_pickle(jit_data_file)
     df['videoid'] = df['imageid'].map(lambda x: _get_videoid(x))
@@ -41,7 +58,8 @@ def eval_jit_svm_on_dataset(jit_data_file,
             rv = run_once_jit_svm_on_video(df, video_id,
                                            dnn_cutoff=dnn_cutoff,
                                            delta_t=delta_t,
-                                           activate_threshold=activate_threshold)
+                                           activate_threshold=activate_threshold,
+                                           svm_cutoff=svm_cutoff)
             result_df = result_df.append(rv, ignore_index=True)
 
     print result_df
@@ -49,10 +67,10 @@ def eval_jit_svm_on_dataset(jit_data_file,
         result_df.to_pickle(output_file)
 
 
-def run_once_jit_svm_on_video(df, video_id, dnn_cutoff,
+def run_once_jit_svm_on_video(df_in, video_id, dnn_cutoff,
                               delta_t=10, activate_threshold=5, svm_cutoff=0.3):
     # filter df by video id
-    df = df[df['videoid'] == video_id]
+    df = df_in[df_in['videoid'] == video_id]
     # print df.iloc[0]
 
     dnn_proba = np.array(df['prediction_proba'].tolist())
@@ -79,6 +97,9 @@ def run_once_jit_svm_on_video(df, video_id, dnn_cutoff,
     y_jit = y[:0]  # same
     pred_jit = y[:0]  # store SVM's prediction on DNN's positive frames
     clf = None
+
+    positive_supply = StealPositiveFromVideoEnd(df_in, video_id)
+
     for t in range(0, int(1 + (max_frame / 30)), delta_t):
         # extract data within this window (from t to t+delta_t)
         # print("time window {} to {}".format(t, t + delta_t))
@@ -105,30 +126,45 @@ def run_once_jit_svm_on_video(df, video_id, dnn_cutoff,
         X_jit = np.append(X_jit, X_test[sent_mask], axis=0)
         y_jit = np.append(y_jit, y_test[sent_mask], axis=0)
         assert X_jit.shape[1] == 1024
-
         # print("Found {} frames in window. Sent {}.".format(y_test.shape[0], np.count_nonzero(sent_mask)))
 
         # now, shall we (re-)train a new SVM?
-        print("JIT samples {}/{}".format(y_jit.shape[0], np.count_nonzero(y_jit)))
-        if np.count_nonzero(sent_mask) > 0 and (np.count_nonzero(y_jit == 0) > activate_threshold
-                                                and np.count_nonzero(y_jit == 1) >= activate_threshold):
+        print("JIT training set {}/{}".format(y_jit.shape[0], np.count_nonzero(y_jit)))
+        if np.count_nonzero(sent_mask) > 0 and np.count_nonzero(y_jit == 0) >= activate_threshold:
             print("retraining")
 
+            if not np.count_nonzero(y_jit == 1) >= activate_threshold:
+                print("Houston, we don't have enough TPs.")
+                augment_pos_X = positive_supply(n=activate_threshold)
+                X_jit_train = np.append(X_jit, augment_pos_X, axis=0)
+                y_jit_train = np.append(y_jit, np.ones((augment_pos_X.shape[0],)), axis=0)
+                assert X_jit_train.shape[0] == y_jit_train.shape[0]
+                print("Now you have {}/{}".format(y_jit_train.shape[0], np.count_nonzero(y_jit_train)))
+            else:
+                X_jit_train = X_jit
+                y_jit_train = y_jit
+
             # use grid search to improve SVM accuracy
-            tuned_params = {
-                'C': [1, 10],
-                'kernel': ['linear'],
-            }
-            clf = GridSearchCV(SVC(random_state=42,
-                                   max_iter=-1,
-                                   class_weight='balanced',
-                                   probability=True),
-                               param_grid=tuned_params,
-                               n_jobs=4,
-                               refit=True)
-            clf.fit(X_jit, y_jit)
+            # tuned_params = {
+            #     'C': [1],
+            #     'kernel': ['linear'],
+            # }
+            # clf = GridSearchCV(SVC(random_state=43,
+            #                        max_iter=100,
+            #                        class_weight='balanced',
+            #                        probability=True,
+            #                        verbose=True),
+            #                    param_grid=tuned_params,
+            #                    n_jobs=4,
+            #                    refit=True)
+            clf = SVC(random_state=42,
+                      kernel='linear',
+                      class_weight='balanced',
+                      probability=True,
+                      verbose=0)
+            clf.fit(X_jit_train, y_jit_train)
         else:
-            print("NOT retraining")
+            print("NOT retraining. Nothing new.")
             pass
 
     assert y.shape == pred_jit.shape, "y: {}, pred_jit: {}".format(y.shape, pred_jit.shape)
@@ -142,6 +178,7 @@ def run_once_jit_svm_on_video(df, video_id, dnn_cutoff,
                                     'jitl_accuracy': jit_accuracy,
                                     'jitl_samples': y_jit.shape[0],
                                     'jitl_prediction': pred_jit,
+                                    'label': y,
                                     'video_id': video_id},
                                    ignore_index=True)
     print res_df
