@@ -234,10 +234,11 @@ def flatten_directory_with_symlink(input_dir, output_dir, followlinks):
 
 
 def load_all_pickles_from_dir(dir_path,
-                              video_ids=[]):
+                              video_ids=[],
+                              prefix=''):
     pickle_content = {}
     annotation_pkl_files = glob.glob(
-        os.path.join(dir_path, '*.pkl'))
+        os.path.join(dir_path, prefix+'*.pkl'))
     if video_ids:
         annotation_pkl_files = [
             annotation_pkl_file for annotation_pkl_file in annotation_pkl_files
