@@ -20,7 +20,6 @@ from sklearn.metrics import confusion_matrix
 from sklearn.utils import resample
 import pandas as pd
 
-# from result_analysis import datasets as result_datasets
 from annotation_stats import dataset as dataset_stats
 from io_util import load_all_pickles_from_dir
 
@@ -47,7 +46,7 @@ datasets = {
          'stanford/experiments/classification_448_224_224_224_extra_negative/test_inference'
          ),
 }
-result_datasets = datasets
+dataset_to_results = datasets
 
 
 def _get_videoid(image_id):
@@ -145,6 +144,11 @@ def make_jitl_dataframe(dataset,
                         ):
     """
     Generate a per-dataset dataframe containing necessary data fro JITL experiments.
+    Columns: label, feature, prediction_proba, imageid.
+    label: ground truth 0/1
+    feature: [int(1024)]
+    prediction_proba: [float(2)] DNN's prediction score
+    imageid: "<video_id>_<frame_id>_<grid_x>_<grid_y>"
     :param base_dir: where to find the input files using paths in results.
     :param dataset: dataset name. e.g, 'stanford', 'raft'
     :param output_file:
@@ -152,8 +156,8 @@ def make_jitl_dataframe(dataset,
     """
 
     df = _parse_tile_annotation_and_inference_pre_logit(dataset,
-                                                        os.path.join(base_dir, result_datasets[dataset][1]),
-                                                        os.path.join(base_dir, result_datasets[dataset][2]),
+                                                        os.path.join(base_dir, dataset_to_results[dataset][1]),
+                                                        os.path.join(base_dir, dataset_to_results[dataset][2]),
                                                         interested_videoids=dataset_stats[dataset]['test'])
 
     print("Confusion matrix (using 0.5 cutoff)")
@@ -165,6 +169,7 @@ def make_jitl_dataframe(dataset,
     cm = confusion_matrix(y_true=ground_truth, y_pred=predictions)
     print(str(cm))
 
+    print("Sample 10 rows.")
     print df.iloc[::df.shape[0] / 10]
 
     if output_file:

@@ -14,8 +14,103 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 from sklearn.utils import resample
-
+import collections
+import os
+import annotation_stats
+import annotation
+from jitl_data import datasets
 from jitl_data import _split_imageid, _get_videoid
+
+
+def max_pooling_on_dataset(jit_data_file,
+                           output_file,
+                           mp_span_secs=1.0,
+                           mp_stride_secs=0.5):
+    """
+    Run max pooling on a dataset's JITL input file and produce a smaller one
+    :param dataset:
+    :param base_dir:
+    :param jit_data_file:
+    :param mp_span_secs:
+    :param mp_stride_secs:
+    :return:
+    """
+    # if not isinstance(mp_span_secs, list):
+    #     mp_span_secs = [mp_span_secs]
+    # if not isinstance(mp_stride_secs, list):
+    #     mp_stride_secs = [mp_stride_secs]
+
+    df = pd.read_pickle(jit_data_file)
+    print("Found {} images in total.".format(df.shape[0]))
+    df['videoid'] = df['imageid'].map(lambda x: _get_videoid(x))
+    df['frameid'] = df['imageid'].map(lambda x: _split_imageid(x)[1]).astype(int)
+    df['grid_x'] = df['imageid'].map(lambda x: _split_imageid(x)[2]).astype(int)
+    df['grid_y'] = df['imageid'].map(lambda x: _split_imageid(x)[3]).astype(int)
+
+    span_frms = int(mp_span_secs * 30)
+    stride_frms = int(mp_stride_secs * 30)
+    print("Max pooling span frames={}, stride frame={}".format(span_frms, stride_frms))
+    downsample_df = pd.DataFrame()
+
+    video_id_grp = df.groupby(['videoid'])
+    for video_id, video_rows in video_id_grp:
+        print("Found {} frames for video {}".format(video_rows.shape[0], video_id))
+        count = 0
+
+        gridxy_grp = video_rows.groupby(['grid_x', 'grid_y'])
+        for gridxy, inputs in gridxy_grp:
+            inputs = inputs.sort_values(by=['frameid'])
+            last_sent_imageid = None
+            min_frm = inputs['frameid'].min()
+            max_frm = inputs['frameid'].max()
+            for pool_start_frm in range(min_frm, max_frm + 1, stride_frms):
+                # print("Max pooling between frame {} and {}".format(pool_start_frm, pool_start_frm + span_frms))
+                pool_images = inputs[(inputs['frameid'] >= pool_start_frm)
+                                     & (inputs['frameid'] < pool_start_frm + span_frms)]
+
+                dnn_scores = np.array(pool_images['prediction_proba'].tolist())[:, 1]
+                assert dnn_scores.ndim == 1
+                max_ind = np.argmax(dnn_scores)
+                imageid = pool_images['imageid'].iloc[max_ind]
+                if imageid != last_sent_imageid:
+                    # print("sampled image: {}".format(imageid))
+                    downsample_df = downsample_df.append(pool_images.iloc[max_ind], ignore_index=True)
+                    last_sent_imageid = imageid
+                    count += 1
+        print("Sample {}/{} frames from video {}".format(count, video_rows.shape[0], video_id))
+
+    downsample_df = downsample_df.sort_values(by=['imageid'])
+    print("After max pooling, we have {} images".format(downsample_df.shape[0]))
+    print("Sample 10 rows.")
+    print downsample_df.iloc[::downsample_df.shape[0] / 10]
+
+    if output_file:
+        downsample_df.to_pickle(output_file)
+
+
+def get_video_frame_to_uniq_track_id(base_dir, dataset):
+    load_annotation_func = annotation_stats.dataset[dataset][
+        'annotation_func']
+    labels = annotation_stats.dataset[dataset]['labels']
+    annotation_dir = os.path.join(base_dir, datasets[dataset][0])
+    annotations = load_annotation_func(annotation_dir)
+    test_video_ids = annotation_stats.dataset[dataset]['test']
+    annotations = annotations[annotations['videoid'].isin(test_video_ids)]
+    annotations = annotation.filter_annotation_by_label(
+        annotations, labels=labels)
+    # make track ID unique across different videos
+    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
+        annotations)
+    video_frame_to_uniq_track_id = collections.defaultdict(list)
+    for track_id, track_annotations in track_annotations_grp:
+        for _, row in track_annotations.iterrows():
+            video_id = row['videoid']
+            frame_id = row['frameid']
+            video_frame_to_uniq_track_id[(video_id, frame_id)].append(track_id)
+    all_unique_trakc_ids = set(track_annotations_grp.groups.keys())
+    print("Parsed annotations. Found {} unique track IDs in {}.".format(
+        len(all_unique_trakc_ids), ','.join(all_unique_trakc_ids)))
+    return all_unique_trakc_ids, video_frame_to_uniq_track_id
 
 
 class StealPositiveFromVideoEnd(object):
@@ -24,8 +119,8 @@ class StealPositiveFromVideoEnd(object):
 
         df = df[(df['videoid'] == video_id) & (df['label'].astype(bool))]
         df = df.sort_values(by=['frameid'])
-        print("Will steal these positives:")
-        print(df.iloc[-tail:])
+        # print("Will steal these positives:")
+        # print(df.iloc[-tail:])
         self.features = np.array(df.iloc[-tail:]['feature'].tolist())
 
     def __call__(self, n=5):
@@ -43,6 +138,7 @@ def eval_jit_svm_on_dataset(jit_data_file,
                             svm_cutoff=0.3):
     dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
     df = pd.read_pickle(jit_data_file)
+    print df.iloc[:5]
     df['videoid'] = df['imageid'].map(lambda x: _get_videoid(x))
     df['frameid'] = df['imageid'].map(lambda imgid: _split_imageid(imgid)[1]).astype(int)
     print df.iloc[:5]
@@ -68,7 +164,7 @@ def eval_jit_svm_on_dataset(jit_data_file,
 
 
 def run_once_jit_svm_on_video(df_in, video_id, dnn_cutoff,
-                              delta_t=10, activate_threshold=5, svm_cutoff=0.3):
+                              delta_t=10, activate_threshold=5, svm_cutoff=0.3, augment_positive=False):
     # filter df by video id
     df = df_in[df_in['videoid'] == video_id]
     # print df.iloc[0]
@@ -130,10 +226,12 @@ def run_once_jit_svm_on_video(df_in, video_id, dnn_cutoff,
 
         # now, shall we (re-)train a new SVM?
         print("JIT training set {}/{}".format(y_jit.shape[0], np.count_nonzero(y_jit)))
-        if np.count_nonzero(sent_mask) > 0 and np.count_nonzero(y_jit == 0) >= activate_threshold:
+        if np.count_nonzero(sent_mask) > 0 \
+                and np.count_nonzero(y_jit == 0) >= activate_threshold \
+                and (augment_positive or np.count_nonzero(y_jit == 1) >= activate_threshold):
             print("retraining")
 
-            if not np.count_nonzero(y_jit == 1) >= activate_threshold:
+            if not np.count_nonzero(y_jit == 1) >= activate_threshold and augment_positive:
                 print("Houston, we don't have enough TPs.")
                 augment_pos_X = positive_supply(n=activate_threshold)
                 X_jit_train = np.append(X_jit, augment_pos_X, axis=0)
@@ -164,7 +262,7 @@ def run_once_jit_svm_on_video(df_in, video_id, dnn_cutoff,
                       verbose=0)
             clf.fit(X_jit_train, y_jit_train)
         else:
-            print("NOT retraining. Nothing new.")
+            print("NOT retraining. Nothing new or not enough positives.")
             pass
 
     assert y.shape == pred_jit.shape, "y: {}, pred_jit: {}".format(y.shape, pred_jit.shape)
