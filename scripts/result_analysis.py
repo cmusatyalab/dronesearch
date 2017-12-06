@@ -764,9 +764,16 @@ def get_okutama_action_prediction_stats(output_dir,
     output = {}
     output['track_to_fire_thresholds'] = track_to_fire_thresholds
     output['track_to_event_interval'] = track_to_event_interval
+    output['predictions_thresholds'] = {
+        k: v[1]
+        for k, v in predictions.items()
+    }
+    tile_annotation_dir = datasets[dataset_name][1]
+    ground_truth = io_util.load_all_pickles_from_dir(tile_annotation_dir)
+    output['ground_truth'] = ground_truth
     with open(
-            os.path.join(output_dir, '{}_event_recall.pkl'.format(action)),
-            'wb') as f:
+            os.path.join(output_dir, '{}_event_recall.pkl'.format(
+                action.replace('/', '_'))), 'wb') as f:
         pickle.dump(output, f)
 
 
