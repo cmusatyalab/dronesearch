@@ -59,6 +59,7 @@ def visualize_annotations_in_image(input_image_path, annotation_file_path,
 def visualize_annotations_in_frame_sequence(frame_sequence_dir,
                                             annotation_dir,
                                             output_dir,
+                                            labels,
                                             video_id=""):
     frame_file_list = sorted(glob.glob(os.path.join(frame_sequence_dir, '*')))
     annotations = io_util.load_annotation_from_dir(
@@ -67,7 +68,13 @@ def visualize_annotations_in_frame_sequence(frame_sequence_dir,
     if video_id:
         print("filtering through video_id: {}".format(video_id))
         annotations = annotations[annotations['videoid'] == video_id]
+    labels = labels.split(',')
+    lost_mask = (annotations['lost'] == 0)
+    label_mask = annotations['label'].isin(labels)
+    mask = label_mask & lost_mask
+    annotations = annotations[mask]
     assert len(annotations) > 0
+
     for frame_file in frame_file_list:
         frame_base_file = os.path.basename(frame_file)
         (frame_seq, ext) = os.path.splitext(frame_base_file)
@@ -83,7 +90,7 @@ def visualize_annotations_in_frame_sequence(frame_sequence_dir,
 
 def _get_keys_by_id_prefix(my_dict, key_prefix):
     key_prefix += '_'
-    keys = [key for key in my_dict.keys() if key.startswith(key_prefix)]
+    keys = [key for key in my_dict.iterkeys() if key.startswith(key_prefix)]
     return keys
 
 

@@ -8,19 +8,21 @@ import math
 import numpy as np
 import cv2
 import os
-
+import glob
 import annotation
 import annotation_stats
 import fire
 import io_util
 import matplotlib
 import redis
-
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sklearn.metrics
-
 from itertools import izip_longest
+
+import logzero
+from logzero import logger
+logzero.logfile("result_analysis.log", maxBytes=1e6, backupCount=3, mode='a')
 
 
 def plot_precision_recall_curve(y_true, probas_pred, output_file_path):
@@ -46,10 +48,11 @@ def _fix_prediction_id_to_ground_truth_id(prediction_id):
     return '_'.join(id_splits)
 
 
-def _fix_ground_truth_id_to_prediction_id(ground_truth_id):
+def _fix_ground_truth_id_to_prediction_id(ground_truth_id,
+                                          prediciton_id_prefix):
     id_splits = ground_truth_id.split('_')
     id_splits[-3] = str(int(id_splits[-3]) + 1)
-    return '_'.join(id_splits)
+    return prediciton_id_prefix + '_'.join(id_splits)
 
 
 def analyze_prediction_metrics_on_test_images(
@@ -207,11 +210,14 @@ def fix_okutama_annotataions():
                     print(t1, t2)
 
 
-def analyze_event_metrics_on_video(annotation_dir,
-                                   dataset_name,
-                                   tile_annotation_dir,
-                                   result_dir,
-                                   test_only=True):
+def analyze_event_metrics_on_video(
+        annotation_dir,
+        dataset_name,
+        tile_annotation_dir,
+        result_dir,
+        threshold,  # A prediction >=threshold would be considered positive
+        result_pkl_file_list,
+        test_only=True):
     assert dataset_name in annotation_stats.dataset.keys()
 
     load_annotation_func = annotation_stats.dataset[dataset_name][
@@ -220,8 +226,8 @@ def analyze_event_metrics_on_video(annotation_dir,
 
     annotations = load_annotation_func(annotation_dir)
     tile_annotations = io_util.load_all_pickles_from_dir(tile_annotation_dir)
-    predictions = io_util.load_all_pickles_from_dir(result_dir)
-
+    predictions = io_util.load_all_pickles_from_dir(
+        result_dir, video_ids=result_pkl_file_list)
     if test_only:
         test_video_ids = annotation_stats.dataset[dataset_name]['test']
         annotations = annotations[annotations['videoid'].isin(test_video_ids)]
@@ -232,6 +238,7 @@ def analyze_event_metrics_on_video(annotation_dir,
 
     detected_tracks = {}
     all_tracks = []
+    track_length = []
     for track_id, track_annotations in track_annotations_grp:
         sorted_track_annotations = track_annotations.sort_values('frameid')
         start_frame = min(sorted_track_annotations['frameid'])
@@ -239,16 +246,22 @@ def analyze_event_metrics_on_video(annotation_dir,
         videoid = list(set(sorted_track_annotations['videoid']))
         assert len(videoid) == 1
         if len(sorted_track_annotations) < 10:
-            print('{} is less than 10 frames!'.format(track_id))
+            # print('{} is less than 10 frames!'.format(track_id))
             continue
 
         all_tracks.append(track_id)
         videoid = videoid[0]
         print('video id: {}, track id: {}, start frame: {}, end frame: {}'.
               format(videoid, track_id, start_frame, end_frame))
+        track_length.append(end_frame - start_frame + 1)
 
         for index, row in sorted_track_annotations.iterrows():
-            tile_detected = _has_tile_fired(tile_annotations, predictions, row)
+            tile_detected = _has_tile_fired(
+                tile_annotations,
+                predictions,
+                row,
+                prediction_id_prefix=dataset_name + '/',
+                threshold=threshold)
             if tile_detected:
                 detected_tracks[track_id] = row['frameid'] - start_frame
                 print('first frame to be send: {}'.format(row['frameid']))
@@ -265,11 +278,13 @@ def analyze_event_metrics_on_video(annotation_dir,
            'detected tracks (assuming 30FPS): {:.2f}({:.2f})').format(
                np.mean(detected_tracks.values()) / 30.0,
                np.std(detected_tracks.values()) / 30.0))
+    track_length.sort()
+    print('track length: {}'.format(track_length))
 
 
-def _get_keys_by_id_prefix(my_dict, key_prefix):
-    key_prefix += '_'
-    keys = [key for key in my_dict.keys() if key.startswith(key_prefix)]
+def _get_keys_by_id_prefix(my_dict, key_prefix, default_prefix_separator='_'):
+    key_prefix += default_prefix_separator
+    keys = [key for key in my_dict.iterkeys() if key.startswith(key_prefix)]
     return keys
 
 
@@ -312,11 +327,12 @@ def _clamp_bbox(image_resolution, bbox):
     return xmin, ymin, xmax, ymax
 
 
-def _get_tile_fire_threshold_for_2_horizontal_tiles(image_resolution,
-                                                    predictions,
-                                                    row,
-                                                    long_edge_ratio=0.5,
-                                                    short_edge_ratio=1):
+def _get_positive_tile_proba(image_resolution,
+                             predictions,
+                             row,
+                             long_edge_ratio=0.5,
+                             short_edge_ratio=1,
+                             prediction_id_prefix=''):
     image_width, image_height = image_resolution
     bbox = _clamp_bbox(image_resolution,
                        (row['xmin'], row['ymin'], row['xmax'], row['ymax']))
@@ -326,19 +342,29 @@ def _get_tile_fire_threshold_for_2_horizontal_tiles(image_resolution,
     for tile_coord in tile_coords:
         tile_id = '{}_{}_{}_{}'.format(row['videoid'], row['frameid'],
                                        *tile_coord)
-        assert _fix_ground_truth_id_to_prediction_id(tile_id) in predictions
+        if _fix_ground_truth_id_to_prediction_id(
+                tile_id, prediction_id_prefix) not in predictions:
+            import pdb
+            pdb.set_trace()
+
+        assert _fix_ground_truth_id_to_prediction_id(
+            tile_id, prediction_id_prefix) in predictions
         pred_prob = predictions[_fix_ground_truth_id_to_prediction_id(
-            tile_id)][1]
+            tile_id, prediction_id_prefix)][1]
         tile_fire_thresholds.append(pred_prob)
     return tile_fire_thresholds
 
 
-def _has_tile_fired(tile_annotations, predictions, row):
+def _has_tile_fired(tile_annotations,
+                    predictions,
+                    row,
+                    prediction_id_prefix,
+                    threshold=0.5):
     image_id = '{}_{}'.format(row['videoid'], row['frameid'])
     tile_ids = _get_keys_by_id_prefix(tile_annotations, image_id)
     for tile_id in tile_ids:
-        prediction = np.argmax(
-            predictions[_fix_ground_truth_id_to_prediction_id(tile_id)])
+        prediction = predictions[_fix_ground_truth_id_to_prediction_id(
+            tile_id, prediction_id_prefix)][1] >= threshold
         if tile_annotations[tile_id] and prediction:
             return True
     return False
@@ -461,25 +487,52 @@ def generate_positive_streams(dataset_name,
                         f.write(tile_im)
 
 
+datasets = {
+    'elephant':
+    ('elephant/annotations',
+     'elephant/classification_448_224_224_224_annotations',
+     'elephant/experiments/classification_448_224_224_224_extra_negative/test_inference_proba'
+     ),
+    'raft':
+    ('raft/annotations', 'raft/classification_448_224_224_224_annotations',
+     'raft/experiments/classification_448_224_224_224_extra_negative/test_inference_proba'
+     ),
+    'okutama':
+    ('okutama/annotations',
+     'okutama/classification_448_224_224_224_annotations',
+     'okutama/experiments/classification_448_224_224_224_extra_negative/test_inference_proba'
+     ),
+    'stanford':
+    ('stanford/annotations',
+     'stanford/classification_448_224_224_224_annotations',
+     'stanford/experiments/classification_448_224_224_224_extra_negative/test_inference_proba'
+     ),
+}
+
+
+def all_extract_prediction_probability():
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        print('working on {}'.format(dataset_name))
+        pkl_files = glob.glob(os.path.join(result_dir, '*.pkl'))
+        output_dir = os.path.join(
+            os.path.dirname(result_dir), 'test_inference_proba')
+        io_util.create_dir_if_not_exist(output_dir)
+        for pkl_file in pkl_files:
+            prediction_dict = pickle.load(open(pkl_file, 'rb'))
+            prediction_proba_dict = {
+                k: v[:2]
+                for k, v in prediction_dict.iteritems()
+            }
+            output_file = os.path.join(output_dir, os.path.basename(pkl_file))
+            pickle.dump(prediction_proba_dict, open(output_file, 'wb'))
+
+
 def all_positive_streams(output_dir):
-    datasets = {
-        'elephant':
-        ('elephant/images',
-         'elephant/experiments/classification_448_224_224_224/test_inference'),
-        'raft':
-        ('raft/images',
-         'raft/experiments/classification_448_224_224_224/test_inference'),
-        'okutama':
-        ('okutama/images',
-         'okutama/experiments/classification_1792_1792/test_inference'),
-        'stanford':
-        ('stanford/images',
-         'stanford/experiments/classification_448_224_224_224/test_inference'),
-    }
-    datasets.pop('okutama')
     for dataset_name, (image_dir, result_dir) in datasets.iteritems():
         print('working on {}'.format(dataset_name))
         dataset_output_dir = os.path.join(output_dir, dataset_name)
+        image_dir = os.path.join(dataset_name, 'images')
         generate_positive_streams(
             dataset_name,
             result_dir,
@@ -489,33 +542,86 @@ def all_positive_streams(output_dir):
             short_edge_ratio=1)
 
 
-datasets = {
-    'elephant':
-    ('elephant/annotations',
-     'elephant/classification_448_224_224_224_annotations',
-     'elephant/experiments/classification_448_224_224_224/test_inference'),
-    'raft': ('raft/annotations',
-             'raft/classification_448_224_224_224_annotations',
-             'raft/experiments/classification_448_224_224_224/test_inference'),
-    'okutama': ('okutama/annotations',
-                'okutama/classification_1792_1792_annotations',
-                'okutama/experiments/classification_1792_1792/test_inference'),
-    'stanford':
-    ('stanford/annotations',
-     'stanford/classification_448_224_224_224_annotations',
-     'stanford/experiments/classification_448_224_224_224/test_inference'),
-}
+def all_extract_prediction_positives(threshold, output_dir):
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        print('workign on {}'.format(dataset_name))
+        dataset_output_dir = os.path.join(
+            os.path.join(output_dir), dataset_name)
+        io_util.create_dir_if_not_exist(dataset_output_dir)
+        extract_prediction_positives(result_dir, dataset_output_dir, threshold)
 
 
-def all_event_metrics_on_video():
+def _sample_image_from_extra_negative_prediction(
+        prediction_id, long_edge_ratio, short_edge_ratio):
+    dataset_name = os.path.dirname(prediction_id)
+    image_dir = os.path.join(dataset_name, 'images')
+    assert os.path.exists(image_dir)
+    prediction_id = os.path.basename(prediction_id)
+    return _get_tile(prediction_id, image_dir, long_edge_ratio,
+                     short_edge_ratio)
+
+
+def extract_prediction_positives(result_dir,
+                                 output_dir,
+                                 threshold,
+                                 long_edge_ratio=0.5,
+                                 short_edge_ratio=1):
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    print('total prediction num: {}'.format(len(predictions)))
+    pos_num = 0
+    for prediction_id, prediction_value in predictions.iteritems():
+        prediction_proba = prediction_value[1]
+        if prediction_proba >= threshold:
+            pos_num += 1
+            # tile_im = _sample_image_from_extra_negative_prediction(
+            #     prediction_id, long_edge_ratio, short_edge_ratio)
+            # output_tile_path = os.path.join(
+            #     output_dir, prediction_id.replace('/', '_')) + '.jpg'
+            # with open(output_tile_path, 'wb') as f:
+            #     f.write(tile_im)
+    print('predicted positive num: {}, percentage: {}'.format(
+        pos_num, pos_num / len(predictions)))
+
+
+# datasets = {
+#     'elephant':
+#     ('elephant/annotations',
+#      'elephant/classification_448_224_224_224_annotations',
+#      'elephant/experiments/classification_448_224_224_224/test_inference'),
+#     'raft': ('raft/annotations',
+#              'raft/classification_448_224_224_224_annotations',
+#              'raft/experiments/classification_448_224_224_224/test_inference'),
+#     'okutama': ('okutama/annotations',
+#                 'okutama/classification_1792_1792_annotations',
+#                 'okutama/experiments/classification_1792_1792/test_inference'),
+#     'stanford':
+#     ('stanford/annotations',
+#      'stanford/classification_448_224_224_224_annotations',
+#      'stanford/experiments/classification_448_224_224_224/test_inference'),
+# }
+
+
+def all_event_metrics_on_video(threshold):
     for dataset_name, (annotation_dir, tile_annotation_dir,
                        result_dir) in datasets.iteritems():
         print('working on {}'.format(dataset_name))
+        if dataset_name == 'stanford':
+            result_pkl_file_list = [
+                '{}_test_inference_results_horizontal'.format(dataset_name),
+                '{}_test_inference_results_vertical'.format(dataset_name),
+            ]
+        else:
+            result_pkl_file_list = [
+                '{}_test_inference_results'.format(dataset_name)
+            ]
         analyze_event_metrics_on_video(
             annotation_dir,
             dataset_name,
             tile_annotation_dir,
             result_dir,
+            threshold,
+            result_pkl_file_list,
             test_only=True)
 
 
@@ -577,7 +683,8 @@ def analyze_event_recall_on_video(annotation_dir,
     if test_only:
         test_video_ids = annotation_stats.dataset[dataset_name]['test']
         annotations = annotations[annotations['videoid'].isin(test_video_ids)]
-        predictions = _filter_by_video_ids(predictions, test_video_ids)
+        # comment out to assume the prediction pickle dir only has results for test videos
+        # predictions = _filter_by_video_ids(predictions, test_video_ids)
 
     annotations = annotation.filter_annotation_by_label(
         annotations, labels=labels)
@@ -601,12 +708,73 @@ def analyze_event_recall_on_video(annotation_dir,
 
         image_resolution = video_id_to_original_resolution[videoid]
         for index, row in sorted_track_annotations.iterrows():
-            tile_fire_thresholds = _get_tile_fire_threshold_for_2_horizontal_tiles(
-                image_resolution, predictions, row, long_edge_ratio,
-                short_edge_ratio)
+            tile_fire_thresholds = _get_positive_tile_proba(
+                image_resolution,
+                predictions,
+                row,
+                long_edge_ratio,
+                short_edge_ratio,
+                prediction_id_prefix=dataset_name + '/')
             track_to_fire_thresholds[track_id].extend(tile_fire_thresholds)
     predictions_thresholds = {k: v[1] for k, v in predictions.items()}
     return track_to_fire_thresholds, predictions_thresholds, tile_annotations
+
+
+def get_okutama_action_prediction_stats(output_dir,
+                                        action='Walking',
+                                        long_edge_ratio=0.5,
+                                        short_edge_ratio=1):
+    dataset_name = 'okutama'
+    annotation_dir = 'okutama/annotations'
+    annotations = annotation.load_and_filter_dataset_test_annotation(
+        dataset_name, annotation_dir)
+    annotations = annotations[annotations['action'] == action]
+    track_iter = annotation.get_track_iter(annotations)
+
+    result_dir = datasets[dataset_name][2]
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
+        'video_id_to_original_resolution']
+
+    track_to_fire_thresholds = collections.defaultdict(list)
+    track_to_event_interval = collections.defaultdict(tuple)
+    for track_id, track_annotations in track_iter:
+        logger.debug('working on {}'.format(track_id))
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        videoid = list(set(sorted_track_annotations['videoid']))
+        assert len(videoid) == 1
+        videoid = videoid[0]
+        image_resolution = video_id_to_original_resolution[videoid]
+        start_frame = min(sorted_track_annotations['frameid'])
+        end_frame = max(sorted_track_annotations['frameid'])
+        track_to_event_interval[track_id] = (start_frame, end_frame)
+        for index, row in sorted_track_annotations.iterrows():
+            tile_fire_thresholds = _get_positive_tile_proba(
+                image_resolution,
+                predictions,
+                row,
+                long_edge_ratio,
+                short_edge_ratio,
+                prediction_id_prefix=dataset_name + '/')
+            # did not use extend here because for event
+            # we want to use continuous frames instead of tiles
+            track_to_fire_thresholds[track_id].append(
+                min(tile_fire_thresholds))
+    io_util.create_dir_if_not_exist(output_dir)
+    output = {}
+    output['track_to_fire_thresholds'] = track_to_fire_thresholds
+    output['track_to_event_interval'] = track_to_event_interval
+    output['predictions_thresholds'] = {
+        k: v[1]
+        for k, v in predictions.items()
+    }
+    tile_annotation_dir = datasets[dataset_name][1]
+    ground_truth = io_util.load_all_pickles_from_dir(tile_annotation_dir)
+    output['ground_truth'] = ground_truth
+    with open(
+            os.path.join(output_dir, '{}_event_recall.pkl'.format(
+                action.replace('/', '_'))), 'wb') as f:
+        pickle.dump(output, f)
 
 
 if __name__ == '__main__':

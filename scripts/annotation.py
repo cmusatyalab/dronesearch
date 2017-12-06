@@ -7,23 +7,28 @@ import abc
 import cPickle as pickle
 import collections
 import cv2
+import operator
 import functools
 import glob
 import itertools
 import json
+import math
 import numpy as np
-import operator
 import os
 
+import annotation_stats
 import fire
 import io_util
+import logzero
 import redis
 from annotation_stats import (
     okutama_test_videos, okutama_train_videos,
     okutama_video_id_to_original_resolution, okutama_video_to_frame_num,
-    stanford_test_videos, stanford_train_videos, stanford_video_to_frame_num,
-    stanford_video_id_to_original_resolution)
-import annotation_stats
+    stanford_test_videos, stanford_train_videos,
+    stanford_video_id_to_original_resolution, stanford_video_to_frame_num)
+from logzero import logger
+
+logzero.logfile("annotation.log", maxBytes=1e6, backupCount=3, mode='a')
 
 
 def get_positive_annotation_mask(annotations, labels=['Car', 'Bus']):
@@ -1063,6 +1068,50 @@ def get_dataset_tile_classification_annotation(
         video_id_to_frame_num=video_id_to_frame_num,
         labels=labels,
         video_ids=video_ids)
+
+
+def get_track_iter(annotations):
+    track_annotations_grp = group_annotation_by_unique_track_ids(annotations)
+    for track_id, track_annotations in track_annotations_grp:
+        yield track_id, track_annotations
+
+
+def load_and_filter_dataset_test_annotation(dataset_name, annotation_dir):
+    labels = annotation_stats.dataset[dataset_name]['labels']
+    video_ids = annotation_stats.dataset[dataset_name]['test']
+    func_load_annotation_dir = annotation_stats.dataset[dataset_name][
+        'annotation_func']
+    annotations = func_load_annotation_dir(annotation_dir)
+    annotations = filter_annotation_by_label(annotations, labels=labels)
+    annotations = annotations[annotations['videoid'].isin(video_ids)]
+    annotations['imageid'] = (
+        annotations['videoid'] + '_' + annotations['frameid'].astype(str))
+    return annotations
+
+
+def get_okutama_event_stats():
+    dataset_name = 'okutama'
+    annotation_dir = 'okutama/annotations'
+    annotations = load_and_filter_dataset_test_annotation(
+        dataset_name, annotation_dir)
+    action_to_track_id = collections.defaultdict(list)
+    track_iter = get_track_iter(annotations)
+    for track_id, track_annotations in track_iter:
+        actions = list(set(track_annotations['action']))
+        actions = [
+            value for value in actions
+            if (type(value) == str) or (not np.isnan(value))
+        ]
+
+        for action in actions:
+            logger.debug('{} has action {}'.format(track_id, action))
+            action_to_track_id[action].append(track_id)
+    sorted_action_to_track_id = collections.OrderedDict(
+        sorted(
+            action_to_track_id.iteritems(),
+            key=lambda x: len(x[1]),
+            reverse=True))
+    logger.info(json.dumps(sorted_action_to_track_id, indent=4))
 
 
 if __name__ == '__main__':
