@@ -49,6 +49,7 @@ dataset_to_legend = {
 }
 cmap = plt.cm.rainbow(np.linspace(0, 1, 3))
 
+event_recall_to_disk = {}
 for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
     plt.clf()
     fig, ax2 = plt.subplots()
@@ -123,7 +124,7 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
     ax1 = ax2.twinx()
     track_to_fire_thresholds = stats['track_to_fire_thresholds']
     track_to_min_fire_thresholds = {
-        k: max(v)
+        k: max(v) if v else 0.0
         for k, v in track_to_fire_thresholds.items()
     }
     print(json.dumps(track_to_min_fire_thresholds, indent=4))
@@ -135,6 +136,7 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
     fire_thresholds = fire_thresholds[::-1]
     event_recall = event_recall[::-1]
     ax1.plot(fire_thresholds, event_recall, 'bs')
+    event_recall_to_disk[dataset_name] = (fire_thresholds, event_recall)
 
     fire_thresholds = np.insert(fire_thresholds, 0, 0)
     event_recall = np.insert(event_recall, 0, 1)
@@ -153,6 +155,9 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
         'fig-event-recall-frame-percentage-vs-threshold-{}.pdf'.format(
             dataset_name),
         bbox_inches='tight')
+
+with open('plotted_event_recall.pkl', 'wb') as f:
+    pickle.dump(event_recall_to_disk, f)
 
 # plt.legend(loc='best', fontsize=22)
 

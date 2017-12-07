@@ -13,10 +13,7 @@ import annotation
 import annotation_stats
 import fire
 import io_util
-import matplotlib
 import redis
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import sklearn.metrics
 from itertools import izip_longest
 
@@ -25,6 +22,7 @@ from logzero import logger
 logzero.logfile("result_analysis.log", maxBytes=1e6, backupCount=3, mode='a')
 
 
+# move to plot_util
 def plot_precision_recall_curve(y_true, probas_pred, output_file_path):
     precision, recall, threshold = sklearn.metrics.precision_recall_curve(
         y_true, probas_pred)
@@ -344,11 +342,13 @@ def _get_positive_tile_proba(image_resolution,
                                        *tile_coord)
         if _fix_ground_truth_id_to_prediction_id(
                 tile_id, prediction_id_prefix) not in predictions:
+            # continue
             import pdb
             pdb.set_trace()
 
-        assert _fix_ground_truth_id_to_prediction_id(
-            tile_id, prediction_id_prefix) in predictions
+        # commented out for suppressed predictions
+        # assert _fix_ground_truth_id_to_prediction_id(
+        #     tile_id, prediction_id_prefix) in predictions
         pred_prob = predictions[_fix_ground_truth_id_to_prediction_id(
             tile_id, prediction_id_prefix)][1]
         tile_fire_thresholds.append(pred_prob)
@@ -487,6 +487,8 @@ def generate_positive_streams(dataset_name,
                         f.write(tile_im)
 
 
+# unsuppressed use 'test_inference_proba'
+# suppressed use 'suppress'
 datasets = {
     'elephant':
     ('elephant/annotations',
@@ -775,6 +777,207 @@ def get_okutama_action_prediction_stats(output_dir,
             os.path.join(output_dir, '{}_event_recall.pkl'.format(
                 action.replace('/', '_'))), 'wb') as f:
         pickle.dump(output, f)
+
+
+def _get_grid_shape(dataset_name,
+                    video_id,
+                    long_edge_ratio=0.5,
+                    short_edge_ratio=1):
+    (im_w, im_h) = annotation_stats.dataset[dataset_name][
+        'video_id_to_original_resolution'][video_id]
+    if im_h > im_w:
+        grid_h = int(1 / long_edge_ratio)
+        grid_w = int(1 / short_edge_ratio)
+    else:
+        grid_h = int(1 / short_edge_ratio)
+        grid_w = int(1 / long_edge_ratio)
+    return (grid_w, grid_h)
+
+
+def _get_tile_coords_iter(grid_w, grid_h):
+    for grid_x in range(grid_w):
+        for grid_y in range(grid_h):
+            yield (grid_x, grid_y)
+
+
+def get_prediction_id(dataset_name, video_id, frame_id, grid_x, grid_y):
+    return '{}/{}_{}_{}_{}'.format(dataset_name, video_id, frame_id, grid_x,
+                                   grid_y)
+
+
+def get_predictions_by_ids(predictions, ids):
+    return {mid: predictions[mid] for mid in ids if mid in predictions}
+
+
+def get_max_positive_probability_from_prediction_dictionary(mdict):
+    return max(mdict.iteritems(), key=lambda x: x[1][1])
+
+
+def all_suppress_predictions():
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        logger.debug('working on {}'.format(dataset_name))
+        suppressed_predictions = max_suppress_results(
+            dataset_name,
+            result_dir,
+            span=30,
+            stride=30,
+            suppress_func=
+            get_max_positive_probability_from_prediction_dictionary)
+        result_base_dir = os.path.dirname(result_dir)
+        dataset_output_dir = os.path.join(result_base_dir, 'suppress')
+        io_util.create_dir_if_not_exist(dataset_output_dir)
+        with open(os.path.join(dataset_output_dir, 'predictions.pkl'),
+                  'wb') as f:
+            pickle.dump(suppressed_predictions, f)
+
+
+def get_test_dataset_video_iter(dataset_name):
+    for video_id in annotation_stats.dataset[dataset_name]['test']:
+        yield (dataset_name, video_id)
+    for extra_test_dataset_name in annotation_stats.dataset[dataset_name][
+            'extra_negative_dataset']:
+        for video_id in annotation_stats.dataset[extra_test_dataset_name][
+                'test']:
+            yield (extra_test_dataset_name, video_id)
+
+
+def max_suppress_results(
+        dataset_name,
+        result_dir,
+        span=30,
+        stride=30,
+        suppress_func=get_max_positive_probability_from_prediction_dictionary):
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    suppressed_dict = {}
+    test_data_iter = get_test_dataset_video_iter(dataset_name)
+    for (test_dataset_name, video_id) in test_data_iter:
+        video_id_to_frame_num = annotation_stats.dataset[test_dataset_name][
+            'video_id_to_frame_num']
+        video_id_to_original_resolution = annotation_stats.dataset[
+            test_dataset_name]['video_id_to_original_resolution']
+        frame_num = video_id_to_frame_num[video_id]
+        (grid_w, grid_h) = _get_grid_shape(test_dataset_name, video_id)
+        tile_coords_iter = _get_tile_coords_iter(grid_w, grid_h)
+        for tile_coord in tile_coords_iter:
+            logger.debug('working on {}/{} tile track: {}'.format(
+                test_dataset_name, video_id, tile_coord))
+            supress_start_frames = range(1, frame_num + 1, stride)
+            for supress_start_frame in supress_start_frames:
+                # find the max condition
+                prediction_ids = [
+                    get_prediction_id(test_dataset_name, video_id, frame_id,
+                                      *tile_coord)
+                    for frame_id in range(supress_start_frame,
+                                          supress_start_frame + span)
+                ]
+                interval_ids_to_predictions = get_predictions_by_ids(
+                    predictions, prediction_ids)
+                for k, _ in interval_ids_to_predictions.iteritems():
+                    suppressed_dict[k] = np.array([1.0, 0.0])
+                survived_key, survived_val = suppress_func(
+                    interval_ids_to_predictions)
+                assert survived_val == max(
+                    interval_ids_to_predictions.values(), key=lambda x: x[1])
+                # logger.debug((survived_key, survived_val))
+                suppressed_dict[survived_key] = survived_val
+    return suppressed_dict
+
+
+def has_any_fire(ids_to_predictions, threshold=0.5):
+    prediction_positive_probas = [
+        val[1] for val in ids_to_predictions.values()
+    ]
+    return (np.max(prediction_positive_probas) > threshold)
+
+
+def set_all_predictions_to(ids_to_predictions, value):
+    for mid in ids_to_predictions.keys():
+        ids_to_predictions[mid] = value
+    return ids_to_predictions
+
+
+def all_interval_sampling_predictions(
+        intervals=[
+            92378 * 2
+            #        1, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 92378 * 2
+        ]):
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        dataset_interval_to_predictions = {}
+        for interval in intervals:
+            logger.debug('working on {}, interval {}'.format(
+                dataset_name, interval))
+            predictions_of_interval = interval_sampling_results(
+                dataset_name,
+                result_dir,
+                interval,
+                interval_fire_func=has_any_fire)
+            dataset_interval_to_predictions[interval] = predictions_of_interval
+        result_base_dir = os.path.dirname(result_dir)
+        dataset_output_dir = os.path.join(result_base_dir, 'interval')
+        io_util.create_dir_if_not_exist(dataset_output_dir)
+        with open(os.path.join(dataset_output_dir, 'predictions.pkl'),
+                  'wb') as f:
+            pickle.dump(dataset_interval_to_predictions, f)
+
+
+def get_all_test_image_id_iter(dataset_name):
+    test_data_iter = get_test_dataset_video_iter(dataset_name)
+    for (test_dataset_name, video_id) in test_data_iter:
+        video_id_to_frame_num = annotation_stats.dataset[test_dataset_name][
+            'video_id_to_frame_num']
+        frame_num = video_id_to_frame_num[video_id]
+        (grid_w, grid_h) = _get_grid_shape(test_dataset_name, video_id)
+        tile_coords_iter = _get_tile_coords_iter(grid_w, grid_h)
+
+        for tile_coord in tile_coords_iter:
+            for frame_id in range(1, frame_num + 1):
+                tile_id = get_prediction_id(test_dataset_name, video_id,
+                                            frame_id, *tile_coord)
+                yield tile_id
+
+
+def interval_sampling_results(dataset_name,
+                              result_dir,
+                              sample_interval,
+                              interval_fire_func=has_any_fire):
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    interval_sampling_prediction_dict = {}
+    test_data_iter = get_test_dataset_video_iter(dataset_name)
+    for (test_dataset_name, video_id) in test_data_iter:
+        video_id_to_frame_num = annotation_stats.dataset[test_dataset_name][
+            'video_id_to_frame_num']
+        frame_num = video_id_to_frame_num[video_id]
+        (grid_w, grid_h) = _get_grid_shape(test_dataset_name, video_id)
+        tile_coords_iter = _get_tile_coords_iter(grid_w, grid_h)
+
+        for tile_coord in tile_coords_iter:
+            logger.debug('working on {}/{} tile track: {}'.format(
+                test_dataset_name, video_id, tile_coord))
+            interval_start_frames = range(1, frame_num + 1, sample_interval)
+            for interval_start_frame in interval_start_frames:
+                prediction_ids = [
+                    get_prediction_id(test_dataset_name, video_id, frame_id,
+                                      *tile_coord)
+                    for frame_id in
+                    range(interval_start_frame,
+                          interval_start_frame + sample_interval)
+                ]
+                interval_ids_to_predictions = get_predictions_by_ids(
+                    predictions, prediction_ids)
+                if interval_fire_func(interval_ids_to_predictions):
+                    # mark all tiles in the interval as 1
+                    set_all_predictions_to(interval_ids_to_predictions, 1.0)
+                    logger.debug('marked as 1')
+                else:
+                    # mark all tiles in the interval as 0
+                    set_all_predictions_to(interval_ids_to_predictions, 0.0)
+                    logger.debug('marked as 0')
+                interval_sampling_prediction_dict.update(
+                    interval_ids_to_predictions)
+    assert len(interval_sampling_prediction_dict) == len(predictions)
+    return interval_sampling_prediction_dict
 
 
 if __name__ == '__main__':
