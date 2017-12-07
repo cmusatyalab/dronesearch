@@ -3,41 +3,27 @@ from __future__ import absolute_import, division, print_function
 
 import cPickle as pickle
 import collections
+import cv2
+import glob
+import itertools
+import functools
 import json
 import math
 import numpy as np
-import cv2
 import os
-import glob
+from itertools import izip_longest
+
 import annotation
 import annotation_stats
 import fire
+import logzero
 import io_util
 import redis
 import sklearn.metrics
-from itertools import izip_longest
-
-import logzero
 from logzero import logger
+
 logzero.logfile("result_analysis.log", maxBytes=1e6, backupCount=3, mode='a')
-
-
-# move to plot_util
-def plot_precision_recall_curve(y_true, probas_pred, output_file_path):
-    precision, recall, threshold = sklearn.metrics.precision_recall_curve(
-        y_true, probas_pred)
-    average_precision = sklearn.metrics.average_precision_score(
-        y_true, probas_pred)
-    print('average precision: {}'.format(average_precision))
-    plt.step(recall, precision, color='b', alpha=0.2, where='post')
-    plt.fill_between(recall, precision, step='post', alpha=0.2, color='b')
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.ylim([0.0, 1.05])
-    plt.xlim([0.0, 1.0])
-    plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(
-        average_precision))
-    plt.savefig(output_file_path, bbox_inches='tight')
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
 def _fix_prediction_id_to_ground_truth_id(prediction_id):
@@ -627,6 +613,33 @@ def all_event_metrics_on_video(threshold):
             test_only=True)
 
 
+def all_sample_event_recall_on_video(output_dir, interval=5000):
+    dataset_to_event_recall = {}
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        print('working on {}'.format(dataset_name))
+        track_to_fire_thresholds, predictions_thresholds, ground_truth = analyze_sample_event_recall_on_video(
+            annotation_dir,
+            dataset_name,
+            result_dir,
+            tile_annotation_dir,
+            long_edge_ratio=0.5,
+            short_edge_ratio=1,
+            interval=interval)
+        dataset_to_event_recall[dataset_name] = {}
+        dataset_to_event_recall[dataset_name][
+            'track_to_fire_thresholds'] = track_to_fire_thresholds
+        dataset_to_event_recall[dataset_name][
+            'predictions_thresholds'] = predictions_thresholds
+        dataset_to_event_recall[dataset_name]['ground_truth'] = ground_truth
+    io_util.create_dir_if_not_exist(output_dir)
+    with open(
+            os.path.join(output_dir,
+                         'sample_event_recall_{}.pkl'.format(interval)),
+            'wb') as f:
+        pickle.dump(dataset_to_event_recall, f)
+
+
 def all_event_recall_on_video(output_dir):
     dataset_to_event_recall = {}
     for dataset_name, (annotation_dir, tile_annotation_dir,
@@ -661,6 +674,72 @@ def _filter_by_video_ids(predictions, video_ids):
         for k, v in predictions.iteritems() if k in video_prediction_keys
     }
     return predictions
+
+
+def analyze_sample_event_recall_on_video(annotation_dir,
+                                         dataset_name,
+                                         result_dir,
+                                         tile_annotation_dir,
+                                         long_edge_ratio=0.5,
+                                         short_edge_ratio=1,
+                                         interval=100):
+
+    assert dataset_name in annotation_stats.dataset.keys()
+
+    load_annotation_func = annotation_stats.dataset[dataset_name][
+        'annotation_func']
+    labels = annotation_stats.dataset[dataset_name]['labels']
+    video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
+        'video_id_to_original_resolution']
+
+    tile_annotations = io_util.load_all_pickles_from_dir(tile_annotation_dir)
+    annotations = load_annotation_func(annotation_dir)
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+
+    test_video_ids = annotation_stats.dataset[dataset_name]['test']
+    annotations = annotations[annotations['videoid'].isin(test_video_ids)]
+
+    annotations = annotation.filter_annotation_by_label(
+        annotations, labels=labels)
+    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
+        annotations)
+
+    track_to_fire_thresholds = collections.defaultdict(list)
+
+    for track_id, track_annotations in track_annotations_grp:
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        start_frame = min(sorted_track_annotations['frameid'])
+        end_frame = max(sorted_track_annotations['frameid'])
+        videoid = list(set(sorted_track_annotations['videoid']))
+        assert len(videoid) == 1
+        if len(sorted_track_annotations) < 10:
+            print('{} is less than 10 frames!'.format(track_id))
+            continue
+
+        videoid = videoid[0]
+        print('video id: {}, track id: {}, start frame: {}, end frame: {}'.
+              format(videoid, track_id, start_frame, end_frame))
+
+        image_resolution = video_id_to_original_resolution[videoid]
+        track_to_fire_thresholds[track_id] = []
+        for index, row in sorted_track_annotations.iterrows():
+            frame_id = row['frameid']
+
+            if frame_id % interval == 0:
+                tile_fire_thresholds = _get_positive_tile_proba(
+                    image_resolution,
+                    predictions,
+                    row,
+                    long_edge_ratio,
+                    short_edge_ratio,
+                    prediction_id_prefix=dataset_name + '/')
+                track_to_fire_thresholds[track_id].extend(tile_fire_thresholds)
+
+    predictions_thresholds = {}
+    for k, v in predictions.iteritems():
+        if int(os.path.basename(k).split('_')[-3]) % interval == 0:
+            predictions_thresholds[k] = v[1]
+    return track_to_fire_thresholds, predictions_thresholds, tile_annotations
 
 
 def analyze_event_recall_on_video(annotation_dir,
@@ -720,6 +799,54 @@ def analyze_event_recall_on_video(annotation_dir,
             track_to_fire_thresholds[track_id].extend(tile_fire_thresholds)
     predictions_thresholds = {k: v[1] for k, v in predictions.items()}
     return track_to_fire_thresholds, predictions_thresholds, tile_annotations
+
+
+def random_select_accuracy(dataset_name, random_sample_intervals=[]):
+    annotation_dir = os.path.join(dir_path, datasets[dataset_name][0])
+    annotations = annotation.load_and_filter_dataset_test_annotation(
+        dataset_name, annotation_dir)
+    random_select_results = collections.OrderedDict()
+    for random_sample_interval in random_sample_intervals:
+        track_iter = annotation.get_track_iter(annotations)
+        all_event_num = 0
+        event_detected_num = 0
+        for track_id, track_annotations in track_iter:
+            logger.debug('working on {}'.format(track_id))
+            all_event_num += 1
+            sorted_track_annotations = track_annotations.sort_values('frameid')
+            videoid = list(set(sorted_track_annotations['videoid']))
+            assert len(videoid) == 1
+            videoid = videoid[0]
+            detected = False
+            for index, row in sorted_track_annotations.iterrows():
+                if row['frameid'] % random_sample_interval == 0:
+                    detected = True
+                    break
+            if detected:
+                event_detected_num += 1
+        event_recall = event_detected_num / all_event_num
+        random_select_results[random_sample_interval] = event_recall
+    return random_select_results
+
+
+def get_event_lengths(dataset_name):
+    annotation_dir = os.path.join(dir_path, datasets[dataset_name][0])
+    annotations = annotation.load_and_filter_dataset_test_annotation(
+        dataset_name, annotation_dir)
+    track_iter = annotation.get_track_iter(annotations)
+    event_lengths = []
+    for track_id, track_annotations in track_iter:
+        logger.debug('working on {}'.format(track_id))
+        sorted_track_annotations = track_annotations.sort_values('frameid')
+        videoid = list(set(sorted_track_annotations['videoid']))
+        assert len(videoid) == 1
+        videoid = videoid[0]
+        if len(sorted_track_annotations) < 10:
+            logger.info(
+                '{} {} is less than 10 frames, only have {} frames!'.format(
+                    dataset_name, track_id, len(sorted_track_annotations)))
+        event_lengths.append(len(sorted_track_annotations))
+    return event_lengths
 
 
 def get_okutama_action_prediction_stats(output_dir,
@@ -805,8 +932,18 @@ def get_prediction_id(dataset_name, video_id, frame_id, grid_x, grid_y):
                                    grid_y)
 
 
-def get_predictions_by_ids(predictions, ids):
-    return {mid: predictions[mid] for mid in ids if mid in predictions}
+def get_predictions_by_ids(predictions, ids, ordered=True):
+    if ordered:
+        ids_to_predictions = collections.OrderedDict()
+        for mid in ids:
+            if mid in predictions:
+                ids_to_predictions[mid] = predictions[mid]
+    else:
+        ids_to_predictions = {
+            mid: predictions[mid]
+            for mid in ids if mid in predictions
+        }
+    return ids_to_predictions
 
 
 def get_max_positive_probability_from_prediction_dictionary(mdict):
@@ -891,29 +1028,42 @@ def has_any_fire(ids_to_predictions, threshold=0.5):
     return (np.max(prediction_positive_probas) > threshold)
 
 
+def has_all_fire(ids_to_predictions, threshold=0.5):
+    prediction_positive_probas = [
+        val[1] for val in ids_to_predictions.values()
+    ]
+    return (np.min(prediction_positive_probas) > threshold)
+
+
 def set_all_predictions_to(ids_to_predictions, value):
     for mid in ids_to_predictions.keys():
         ids_to_predictions[mid] = value
     return ids_to_predictions
 
 
-def all_interval_sampling_predictions(
-        intervals=[
-            92378 * 2
-            #        1, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 92378 * 2
-        ]):
+def all_interval_sampling_predictions(intervals=[
+        1, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 92378 * 2
+],
+                                      thresholds=[0.1, 0.3]):
     for dataset_name, (annotation_dir, tile_annotation_dir,
                        result_dir) in datasets.iteritems():
         dataset_interval_to_predictions = {}
-        for interval in intervals:
-            logger.debug('working on {}, interval {}'.format(
-                dataset_name, interval))
-            predictions_of_interval = interval_sampling_results(
-                dataset_name,
-                result_dir,
-                interval,
-                interval_fire_func=has_any_fire)
-            dataset_interval_to_predictions[interval] = predictions_of_interval
+        for threshold in thresholds:
+            interval_to_prediction_per_threshold = {}
+            interval_fire_func = functools.partial(
+                has_all_fire, threshold=threshold)
+            for interval in intervals:
+                logger.debug('working on {}, interval {}, threshold {}'.format(
+                    dataset_name, interval, threshold))
+                predictions_of_interval = interval_sampling_results(
+                    dataset_name,
+                    result_dir,
+                    interval,
+                    interval_fire_func=interval_fire_func)
+                interval_to_prediction_per_threshold[
+                    interval] = predictions_of_interval
+            dataset_interval_to_predictions[
+                threshold] = interval_to_prediction_per_threshold
         result_base_dir = os.path.dirname(result_dir)
         dataset_output_dir = os.path.join(result_base_dir, 'interval')
         io_util.create_dir_if_not_exist(dataset_output_dir)
@@ -922,7 +1072,7 @@ def all_interval_sampling_predictions(
             pickle.dump(dataset_interval_to_predictions, f)
 
 
-def get_all_test_image_id_iter(dataset_name):
+def get_all_test_tile_id_iter(dataset_name):
     test_data_iter = get_test_dataset_video_iter(dataset_name)
     for (test_dataset_name, video_id) in test_data_iter:
         video_id_to_frame_num = annotation_stats.dataset[test_dataset_name][
@@ -938,45 +1088,29 @@ def get_all_test_image_id_iter(dataset_name):
                 yield tile_id
 
 
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.izip_longest(fillvalue=fillvalue, *args)
+
+
 def interval_sampling_results(dataset_name,
                               result_dir,
                               sample_interval,
                               interval_fire_func=has_any_fire):
     predictions = io_util.load_all_pickles_from_dir(result_dir)
-    interval_sampling_prediction_dict = {}
-    test_data_iter = get_test_dataset_video_iter(dataset_name)
-    for (test_dataset_name, video_id) in test_data_iter:
-        video_id_to_frame_num = annotation_stats.dataset[test_dataset_name][
-            'video_id_to_frame_num']
-        frame_num = video_id_to_frame_num[video_id]
-        (grid_w, grid_h) = _get_grid_shape(test_dataset_name, video_id)
-        tile_coords_iter = _get_tile_coords_iter(grid_w, grid_h)
-
-        for tile_coord in tile_coords_iter:
-            logger.debug('working on {}/{} tile track: {}'.format(
-                test_dataset_name, video_id, tile_coord))
-            interval_start_frames = range(1, frame_num + 1, sample_interval)
-            for interval_start_frame in interval_start_frames:
-                prediction_ids = [
-                    get_prediction_id(test_dataset_name, video_id, frame_id,
-                                      *tile_coord)
-                    for frame_id in
-                    range(interval_start_frame,
-                          interval_start_frame + sample_interval)
-                ]
-                interval_ids_to_predictions = get_predictions_by_ids(
-                    predictions, prediction_ids)
-                if interval_fire_func(interval_ids_to_predictions):
-                    # mark all tiles in the interval as 1
-                    set_all_predictions_to(interval_ids_to_predictions, 1.0)
-                    logger.debug('marked as 1')
-                else:
-                    # mark all tiles in the interval as 0
-                    set_all_predictions_to(interval_ids_to_predictions, 0.0)
-                    logger.debug('marked as 0')
-                interval_sampling_prediction_dict.update(
-                    interval_ids_to_predictions)
-    assert len(interval_sampling_prediction_dict) == len(predictions)
+    interval_sampling_prediction_dict = collections.OrderedDict()
+    test_tile_id_iter = get_all_test_tile_id_iter(dataset_name)
+    for tile_ids in grouper(sample_interval, test_tile_id_iter):
+        interval_ids_to_predictions = get_predictions_by_ids(
+            predictions, tile_ids, ordered=True)
+        if interval_fire_func(interval_ids_to_predictions):
+            # mark all tiles in the interval as 1
+            set_all_predictions_to(interval_ids_to_predictions, 1.0)
+        else:
+            # mark all tiles in the interval as 0
+            set_all_predictions_to(interval_ids_to_predictions, 0.0)
+        interval_sampling_prediction_dict.update(interval_ids_to_predictions)
     return interval_sampling_prediction_dict
 
 

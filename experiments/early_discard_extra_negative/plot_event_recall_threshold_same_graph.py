@@ -158,20 +158,3 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
 
 with open('plotted_event_recall.pkl', 'wb') as f:
     pickle.dump(event_recall_to_disk, f)
-
-# plt.legend(loc='best', fontsize=22)
-
-# axins = zoomed_inset_axes(
-#     ax1,
-#     1,
-#     loc='upper left',
-#     bbox_to_anchor = (100,800)
-# )
-# axins.plot(fire_thresholds, event_recall, c=c_color, label='Event Recall')
-# axins.plot(fire_thresholds, event_recall, c=c_color, marker='o')
-# axins.plot(roc_threshold, tp + fp, 'r-')
-# x1, x2, y1, y2 = 0.9, 1.02, 0, 1
-# axins.set_xlim(x1, x2)
-# axins.set_ylim(y1, y2)
-#mark_inset(ax1, axins, loc1=1, loc2=3)
-# plt.gca().invert_xaxis()
