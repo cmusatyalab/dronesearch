@@ -298,6 +298,7 @@ dataset = {
         elephant_test_videos,
         'extra_negative_dataset':
         ['okutama', 'stanford', 'raft'],
+        'total_test_frames': 92378,
     },
     "raft": {
         'annotation_func':
@@ -311,6 +312,7 @@ dataset = {
         'test': raft_test_videos,
         'extra_negative_dataset':
         ['okutama', 'stanford', 'elephant'],
+        'total_test_frames': 92378,
     },
     "okutama": {
         'annotation_func':
@@ -328,6 +330,7 @@ dataset = {
         okutama_test_videos,
         'extra_negative_dataset':
         ['elephant'],
+        'total_test_frames': 20751,
     },
     "stanford": {
         'annotation_func':
@@ -349,5 +352,6 @@ dataset = {
         stanford_test_vertical_videos,
         'extra_negative_dataset':
         ['okutama', 'raft', 'elephant'],
+        'total_test_frames': 92378,
     }
 }

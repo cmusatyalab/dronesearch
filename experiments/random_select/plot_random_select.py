@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, '../../scripts')
 import plot_util
 import result_analysis
+import annotation_stats
 import matplotlib.pyplot as plt
 
 use_cache = bool(int(sys.argv[1]))
@@ -67,7 +68,12 @@ def _plot_bar_graph_interval_to_event_recall(dataset_stats):
         rect = ax.bar(
             ind + width * dataset_idx, event_recalls, width, color=next(color))
         rects.append(rect)
-    ax.legend(rects, datasets.values(), loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.25))
+    ax.legend(
+        rects,
+        datasets.values(),
+        loc='upper center',
+        ncol=4,
+        bbox_to_anchor=(0.5, 1.25))
     ax.set_xlabel('Sample Interval')
     ax.set_ylabel('Event Recall')
     ax.set_xticks(ind + width * float(len(datasets)) / 2.0)
@@ -75,12 +81,52 @@ def _plot_bar_graph_interval_to_event_recall(dataset_stats):
     plt.savefig('fig-random-select-interval-recall.pdf', bbox_inches='tight')
 
 
+def _plot_line_graph_event_recall_to_bw(dataset_stats):
+    datasets = collections.OrderedDict([
+        ('okutama', 'T1'),
+        ('stanford', 'T2'),
+        ('raft', 'T3'),
+        ('elephant', 'T4'),
+    ])
+    N = len(datasets)
+    cmap = plt.cm.rainbow(np.linspace(0, 1, N))
+    color = iter(cmap)
+    plt.clf()
+    fig = plt.figure(figsize=(10, 5))
+    ax = fig.add_subplot(1, 1, 1)
+    for dataset_idx, dataset_name in enumerate(datasets.keys()):
+        print('plotting {}'.format(dataset_name))
+        event_recall_to_frames = collections.OrderedDict()
+        for interval, (event_recall, _) in sorted(
+                dataset_stats[dataset_name].iteritems(), key=lambda x: x[0]):
+            frame_num = int(
+                annotation_stats.dataset[dataset_name]['total_test_frames'] /
+                interval)
+            if event_recall in event_recall_to_frames:
+                if frame_num < event_recall_to_frames[event_recall]:
+                    event_recall_to_frames[event_recall] = frame_num
+            else:
+                event_recall_to_frames[event_recall] = frame_num
+        ax.plot(
+            event_recall_to_frames.keys(),
+            event_recall_to_frames.values(),
+            color=next(color),
+            label=datasets[dataset_name])
+    ax.legend(loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.25))
+    ax.set_xlabel('Event Recall')
+    ax.set_ylabel('Frames')
+    # ax.set_xticks(ind + width * float(len(datasets)) / 2.0)
+    # ax.set_xticklabels(sorted(dataset_stats['elephant'].keys()))
+    plt.savefig('fig-random-select-recall-frame.pdf', bbox_inches='tight')
+
+
 if __name__ == '__main__':
     if use_cache:
         dataset_stats = _load_cache()
     else:
         dataset_stats = _calc_dataset_stats()
-    _plot_bar_graph_interval_to_event_recall(dataset_stats)
+    # _plot_bar_graph_interval_to_event_recall(dataset_stats)
+    _plot_line_graph_event_recall_to_bw(dataset_stats)
 
 # event_recalls, transmitted_frames = zip(*sorted_frames_event_recall_tuple)
 
