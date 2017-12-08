@@ -11,23 +11,84 @@ import plot_util
 import result_analysis
 import matplotlib.pyplot as plt
 
-random_sample_intervals = [1, 10, 30, 60, 100, 300, 600, 1000, 3000, 6000]
-for dataset_name in result_analysis.datasets.keys():
-    print('working on {}'.format(dataset_name))
-    interval_to_event_recall = result_analysis.random_select_accuracy(
-        dataset_name, random_sample_intervals)
+use_cache = bool(int(sys.argv[1]))
+experiment_name = 'random_select'
+
+
+def _load_cache():
+    if not os.path.exists('cache.pkl'):
+        raise ValueError('No cache file found.')
+    else:
+        with open('cache.pkl', 'rb') as f:
+            dataset_stats = pickle.load(f)
+    return dataset_stats
+
+
+def _calc_dataset_stats():
+    dataset_stats = {}
+    for dataset_name in plot_util.experiments[experiment_name]:
+        predictions = plot_util.get_predictions(experiment_name, dataset_name)
+        interval_to_frames_event_recalls = collections.defaultdict(list)
+        for interval, interval_predictions in predictions.iteritems():
+            print('working on {}, interval {}'.format(dataset_name, interval))
+            event_recalls_per_interval = result_analysis.get_event_recall(
+                dataset_name, interval_predictions, [0.5])
+            interval_to_frames_event_recalls[interval] = (
+                event_recalls_per_interval[0], len(interval_predictions))
+        dataset_stats[dataset_name] = interval_to_frames_event_recalls
+
+    with open('cache.pkl', 'wb') as f:
+        pickle.dump(dataset_stats, f)
+    return dataset_stats
+
+
+def _plot_bar_graph_interval_to_event_recall(dataset_stats):
+    datasets = collections.OrderedDict([
+        ('okutama', 'T1'),
+        ('stanford', 'T2'),
+        ('raft', 'T3'),
+        ('elephant', 'T4'),
+    ])
+    N = len(dataset_stats['elephant'])
+    ind = np.arange(N)
+    width = 0.15
+    cmap = plt.cm.rainbow(np.linspace(0, 1, N))
+    color = iter(cmap)
     plt.clf()
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(10, 5))
     ax = fig.add_subplot(1, 1, 1)
-    frame_percent = 1.0 / np.array(interval_to_event_recall.keys())
-    event_recall = interval_to_event_recall.values()
-    ax.plot(event_recall, frame_percent, 'rs-')
-    ax.set_xticks(np.arange(0, 1.1, 0.1))
-    ax.set_yticks(np.arange(0, 1.1, 0.1))
-    ax.set_xlim(1.0, 0)
-    ax.set_xlabel('Event Recall')
-    ax.set_ylabel('Fraction of Frames Sent')
-    ax.set_aspect('equal')
-    ax.grid(linestyle='--', linewidth=1)
-    plt.savefig(
-        'fig-random-select-{}.pdf'.format(dataset_name), bbox_inches='tight')
+    rects = []
+    for dataset_idx, dataset_name in enumerate(datasets.keys()):
+        print('plotting {}'.format(dataset_name))
+        event_recalls = []
+        for interval, (event_recall, _) in sorted(
+                dataset_stats[dataset_name].iteritems(), key=lambda x: x[0]):
+            event_recalls.append(event_recall)
+        rect = ax.bar(
+            ind + width * dataset_idx, event_recalls, width, color=next(color))
+        rects.append(rect)
+    ax.legend(rects, datasets.values(), loc='upper center', ncol=4, bbox_to_anchor=(0.5, 1.25))
+    ax.set_xlabel('Sample Interval')
+    ax.set_ylabel('Event Recall')
+    ax.set_xticks(ind + width * float(len(datasets)) / 2.0)
+    ax.set_xticklabels(sorted(dataset_stats['elephant'].keys()))
+    plt.savefig('fig-random-select-interval-recall.pdf', bbox_inches='tight')
+
+
+if __name__ == '__main__':
+    if use_cache:
+        dataset_stats = _load_cache()
+    else:
+        dataset_stats = _calc_dataset_stats()
+    _plot_bar_graph_interval_to_event_recall(dataset_stats)
+
+# event_recalls, transmitted_frames = zip(*sorted_frames_event_recall_tuple)
+
+#     ax.plot(event_recalls, transmitted_frames, 'rs-')
+#     # ax.set_xticks(np.arange(0, 1.1, 0.1))
+#     # ax.set_yticks(np.arange(0, 1.1, 0.1))
+#     # ax.set_xlim(1.0, 0)
+#     ax.set_xlabel('Event Recall')
+#     ax.set_ylabel('Frames Sent')
+#     # ax.set_aspect('equal')
+#     # ax.grid(linestyle='--', linewidth=1)

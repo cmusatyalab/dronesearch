@@ -40,6 +40,13 @@ experiments = {
         )
         for dataset_name in result_analysis.datasets.keys()
     },
+    'random_select': {
+        dataset_name: os.path.join(
+            dir_path, dataset_name,
+            'experiments/classification_448_224_224_224_extra_negative/random_select'
+        )
+        for dataset_name in result_analysis.datasets.keys()
+    },
     'prc': {
         dataset_name: os.path.join(
             dir_path, dataset_name,

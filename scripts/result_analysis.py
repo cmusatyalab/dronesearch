@@ -20,6 +20,7 @@ import logzero
 import io_util
 import redis
 import sklearn.metrics
+import pandas as pd
 from logzero import logger
 
 logzero.logfile("result_analysis.log", maxBytes=1e6, backupCount=3, mode='a')
@@ -1116,7 +1117,7 @@ def interval_sampling_results(dataset_name,
 
 
 def all_random_select_predictions(
-        intervals=[1, 10, 30, 60, 100, 300, 600, 1000, 3000, 6000]):
+        intervals=[1, 10, 30, 60, 100, 300, 600]):
     for dataset_name, (annotation_dir, tile_annotation_dir,
                        result_dir) in datasets.iteritems():
         dataset_random_select_to_predictions = {}
@@ -1147,19 +1148,31 @@ def get_event_recall(dataset_name,
                      long_edge_ratio=0.5,
                      short_edge_ratio=1):
     assert dataset_name in annotation_stats.dataset.keys()
-
-    load_annotation_func = annotation_stats.dataset[dataset_name][
-        'annotation_func']
-    labels = annotation_stats.dataset[dataset_name]['labels']
     video_id_to_original_resolution = annotation_stats.dataset[dataset_name][
         'video_id_to_original_resolution']
-    annotation_dir, _, _ = datasets[dataset_name]
-    annotations = load_annotation_func(annotation_dir)
-    if test_only:
-        test_video_ids = annotation_stats.dataset[dataset_name]['test']
-        annotations = annotations[annotations['videoid'].isin(test_video_ids)]
-    annotations = annotation.filter_annotation_by_label(
-        annotations, labels=labels)
+
+    # load_annotation_func = annotation_stats.dataset[dataset_name][
+    #     'annotation_func']
+    # labels = annotation_stats.dataset[dataset_name]['labels']
+    # annotation_dir, _, _ = datasets[dataset_name]
+    # annotation_dir = os.path.join(dir_path, annotation_dir)
+    # annotations = load_annotation_func(annotation_dir)
+    # if test_only:
+    #     test_video_ids = annotation_stats.dataset[dataset_name]['test']
+    #     annotations = annotations[annotations['videoid'].isin(test_video_ids)]
+    # annotations = annotation.filter_annotation_by_label(
+    #     annotations, labels=labels)
+    # with open(
+    #         os.path.join(dir_path, dataset_name, 'test_track_annotations.json'),
+    #         'w') as f:
+    #     annotations.to_json(f)
+    # return 0
+
+    annotation_json_file = os.path.join(dir_path, dataset_name,
+                                        'test_track_annotations.json')
+    annotations = pd.read_json(annotation_json_file)
+    annotations['videoid'] = annotations['videoid'].apply(
+        lambda x: str(x).zfill(2))
     track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
         annotations)
 
