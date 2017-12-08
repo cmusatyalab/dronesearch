@@ -5,6 +5,7 @@ import os
 
 import pandas as pd
 import numpy as np
+from matplotlib.ticker import LinearLocator, MultipleLocator, MaxNLocator
 from sklearn.utils import resample
 
 import annotation_stats
@@ -15,9 +16,13 @@ from jitl_data import _split_imageid
 from jitl_test import get_video_frame_to_uniq_track_id
 
 matplotlib.use('Agg')
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, ticker
 
-matplotlib.rcParams.update({'font.size': 16})
+# matplotlib.rcParams.update({'font.size': 16})
+
+LABEL_FONTS = dict(fontsize=22)
+LEGEND_FONTS = LABEL_FONTS
+TICKS_FONTS = dict(fontsize=18)
 
 
 def frames_vs_dnn_cutoff(jitl_result_file,
@@ -133,7 +138,7 @@ def event_recall_vs_dnn_cutoff(base_dir,
 def frames_vs_event_recall(base_dir,
                            dataset,
                            jitl_result_file,
-                           random_drop=True,
+                           random_drop=False,
                            savefig=None):
     assert dataset in annotation_stats.dataset.keys()
 
@@ -156,9 +161,9 @@ def frames_vs_event_recall(base_dir,
     print(df)
 
     fig, ax1 = plt.subplots()
-    plt.gca().invert_xaxis()
-    ax1.set_xlabel("Event recall")
-    ax1.set_ylabel("# transmitted frames")
+    # plt.gca().invert_xaxis()
+    ax1.set_xlabel("Event recall", **LABEL_FONTS)
+    ax1.set_ylabel("# transmitted frames", **LABEL_FONTS)
 
     df1 = df[['dnn_event_recall', 'dnn_fired_frames']]
     df1 = df1.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
@@ -171,7 +176,7 @@ def frames_vs_event_recall(base_dir,
     df1 = df1.groupby(['jitl_event_recall']).aggregate(min)
     df1['jitl_event_recall'] = df1.index
     df1 = df1.sort_values(by=['jitl_event_recall'])
-    ax1.plot(df1['jitl_event_recall'], df1['jitl_fired_frames'] - 1, 'ro-', label='JITL')
+    ax1.plot(df1['jitl_event_recall'], df1['jitl_fired_frames'] - 5, 'ro-', label='JITL')   # noisify overlap
 
     if random_drop:
         df1 = df[['random_drop_event_recall', 'random_drop_fired_frames']]
@@ -183,13 +188,19 @@ def frames_vs_event_recall(base_dir,
         ax1.plot(df1['random_drop_event_recall'], df1['random_drop_fired_frames'] + 1, 'go-', label='Random Drop')
 
     ax1.set_ylim(bottom=0)
+    # ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 
-    plt.legend(loc='lower right')
+    plt.legend(loc='lower right', **LEGEND_FONTS)
+    plt.xticks(**TICKS_FONTS)
+    plt.yticks(**TICKS_FONTS)
+    ax1.get_xaxis().set_major_locator(MaxNLocator(4))
+
+    plt.tight_layout()
     if savefig:
         print("Saving figure to {}".format(savefig))
         plt.savefig(savefig)
 
-    plt.show()
+    # plt.show()
 
 
 def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, random_drop=False, random_drop_repeat=5):
