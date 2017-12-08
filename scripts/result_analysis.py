@@ -1116,8 +1116,10 @@ def interval_sampling_results(dataset_name,
     return interval_sampling_prediction_dict
 
 
-def all_random_select_predictions(
-        intervals=[1, 10, 30, 60, 100, 300, 600]):
+select_interval = [1, 10, 30, 60, 100, 300, 600]
+
+
+def all_random_select_predictions(intervals=select_interval):
     for dataset_name, (annotation_dir, tile_annotation_dir,
                        result_dir) in datasets.iteritems():
         dataset_random_select_to_predictions = {}
@@ -1138,6 +1140,35 @@ def random_select_results(dataset_name, sample_interval):
     for tile_ids in grouper(sample_interval, test_tile_id_iter):
         if tile_ids[0] is not None:
             interval_sampling_prediction_dict[tile_ids[0]] = [0.0, 1.0]
+    return interval_sampling_prediction_dict
+
+
+def all_random_select_and_filter_predictions(intervals=select_interval):
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        dataset_random_select_to_predictions = {}
+        for interval in intervals:
+            dataset_random_select_to_predictions[
+                interval] = random_select_and_filter_results(
+                    dataset_name, interval)
+        result_base_dir = os.path.dirname(result_dir)
+        dataset_output_dir = os.path.join(result_base_dir,
+                                          'random_select_and_filter')
+        io_util.create_dir_if_not_exist(dataset_output_dir)
+        with open(os.path.join(dataset_output_dir, 'predictions.pkl'),
+                  'wb') as f:
+            pickle.dump(dataset_random_select_to_predictions, f)
+
+
+def random_select_and_filter_results(dataset_name, sample_interval):
+    interval_sampling_prediction_dict = collections.OrderedDict()
+    result_dir = datasets[dataset_name][2]
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    test_tile_id_iter = get_all_test_tile_id_iter(dataset_name)
+    for tile_ids in grouper(sample_interval, test_tile_id_iter):
+        if tile_ids[0] is not None:
+            interval_sampling_prediction_dict[tile_ids[0]] = predictions[
+                tile_ids[0]][:2]
     return interval_sampling_prediction_dict
 
 
@@ -1199,7 +1230,18 @@ def get_event_recall(dataset_name,
                 prediction_id_prefix=dataset_name + '/')
             track_to_fire_thresholds[track_id].extend(tile_fire_thresholds)
 
-    event_recalls = []
+    event_recalls, frames_transmitted = [], []
+    if not threshold_list:
+        threshold_list = set([
+            np.max(fire_thresholds)
+            for track_id, fire_thresholds in
+            track_to_fire_thresholds.iteritems() if fire_thresholds
+        ])
+        threshold_list.add(0)
+        threshold_list = sorted(threshold_list)
+        logger.debug(('threshold list not specified. '
+                      'try to find all threshold at '
+                      'which event recall changes: {}'.format(threshold_list)))
     for threshold in threshold_list:
         event_is_detected_mask = np.array([
             np.any(np.array(fire_thresholds) > threshold)
@@ -1209,7 +1251,11 @@ def get_event_recall(dataset_name,
         event_recall_for_threshold = event_is_detected_mask.sum() / len(
             event_is_detected_mask)
         event_recalls.append(event_recall_for_threshold)
-    return event_recalls
+        predictions_positive_probas = [v[1] for v in predictions.values()]
+        frames_transmitted_at_interval = (np.array(predictions_positive_probas)
+                                          > threshold).sum()
+        frames_transmitted.append(frames_transmitted_at_interval)
+    return event_recalls, frames_transmitted, threshold_list
 
 
 if __name__ == '__main__':

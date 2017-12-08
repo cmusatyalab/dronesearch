@@ -32,7 +32,9 @@ def _calc_dataset_stats():
         interval_to_frames_event_recalls = collections.defaultdict(list)
         for interval, interval_predictions in predictions.iteritems():
             print('working on {}, interval {}'.format(dataset_name, interval))
-            event_recalls_per_interval = result_analysis.get_event_recall(
+            # since the generated probability for random select is 1
+            # therefore we use 0.5 as filtering
+            event_recalls_per_interval, _, _ = result_analysis.get_event_recall(
                 dataset_name, interval_predictions, [0.5])
             interval_to_frames_event_recalls[interval] = (
                 event_recalls_per_interval[0], len(interval_predictions))
