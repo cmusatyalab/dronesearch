@@ -1,24 +1,15 @@
 import glob
-import pickle
 
 import fire
+import matplotlib
 import numpy as np
 import pandas as pd
 
-import matplotlib
-
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
-from sklearn.linear_model import SGDClassifier
-from sklearn.metrics import confusion_matrix, accuracy_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from sklearn.utils import resample
-import collections
-import os
-import annotation_stats
-import annotation
-from jitl_data import datasets
 from jitl_data import _split_imageid, _get_videoid
 
 
@@ -87,30 +78,6 @@ def max_pooling_on_dataset(jit_data_file,
     if output_file:
         downsample_df.to_pickle(output_file)
 
-
-def get_video_frame_to_uniq_track_id(base_dir, dataset):
-    load_annotation_func = annotation_stats.dataset[dataset][
-        'annotation_func']
-    labels = annotation_stats.dataset[dataset]['labels']
-    annotation_dir = os.path.join(base_dir, datasets[dataset][0])
-    annotations = load_annotation_func(annotation_dir)
-    test_video_ids = annotation_stats.dataset[dataset]['test']
-    annotations = annotations[annotations['videoid'].isin(test_video_ids)]
-    annotations = annotation.filter_annotation_by_label(
-        annotations, labels=labels)
-    # make track ID unique across different videos
-    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
-        annotations)
-    video_frame_to_uniq_track_id = collections.defaultdict(list)
-    for track_id, track_annotations in track_annotations_grp:
-        for _, row in track_annotations.iterrows():
-            video_id = row['videoid']
-            frame_id = row['frameid']
-            video_frame_to_uniq_track_id[(video_id, frame_id)].append(track_id)
-    all_unique_trakc_ids = set(track_annotations_grp.groups.keys())
-    print("Parsed annotations. Found {} unique track IDs in {}.".format(
-        len(all_unique_trakc_ids), ','.join(all_unique_trakc_ids)))
-    return all_unique_trakc_ids, video_frame_to_uniq_track_id
 
 
 class StealPositiveFromVideoEnd(object):
