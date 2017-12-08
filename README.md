@@ -213,3 +213,9 @@ python infer_tile_classifier.py --checkpoint_path=/home/junjuew/mobisys18/proces
 
 python setup_train.py setup_train_dir_with_extra_negative
 python infer_tile_classifier.py --checkpoint_path=/home/junjuew/mobisys18/processed_dataset/elephant/experiments/classification_448_224_224_224/logs_all_layers_10000 --input_dir=/home/junjuew/mobisys18/processed_dataset/elephant/images_448_224 --output_endpoint_names="Predictions,AvgPool_1a" --result_file=/home/junjuew/mobisys18/experiments/jitl/elephant.pkl --grid_w=2 --grid_h=1 --image_w=448 --image_h=224 --batch_size=100 --max_gpu_memory_fraction=1 --video_ids="09,10,11"
+
+
+
+### JITL
+augment_postive is False now , so that we could add synthetic data.
+if not np.count_nonzero(y_jit == 1) >= activate_threshold and augment_positive:
