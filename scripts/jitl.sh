@@ -31,15 +31,15 @@ fi
 
 # Run simulation
 # Interesting cutoff range:
-# Okutama, elephant: 0.90~0.99; raft: 0.8~1.0; stanford
-if false; then
+# Okutama, elephant: 0.90~0.99; stanford, raft: 0.8~1.0; stanford
+if true; then
     mkdir -p ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log
     python jitl_test.py eval_jit_svm_on_dataset \
         --jit_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
         --output_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
-        --dnn_cutoff_start 80 \
+        --dnn_cutoff_start 90 \
         --dnn_cutoff_end 100 \
-        --dnn_cutoff_step 2 \
+        --dnn_cutoff_step 1 \
         --svm_cutoff 0.3 \
         | tee ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log/eval_jit_svm_${DATASET}.log
 fi

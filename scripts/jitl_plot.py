@@ -52,21 +52,30 @@ def frames_vs_event_recall(base_dir,
 
     fig, ax1 = plt.subplots()
     # plt.gca().invert_xaxis()
-    ax1.set_xlabel("Event recall", **LABEL_FONTS)
-    ax1.set_ylabel("# transmitted frames", **LABEL_FONTS)
+    ax1.set_xlabel("Event Recall", **LABEL_FONTS)
+    ax1.set_ylabel("Frame Fraction", **LABEL_FONTS)
 
-    df1 = df[['dnn_event_recall', 'dnn_fired_frames']]
-    df1 = df1.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
-    df1['dnn_event_recall'] = df1.index
-    df1 = df1.sort_values(by=['dnn_event_recall'])
-    # df1 = df1.sort_index()
-    ax1.plot(df1['dnn_event_recall'], df1['dnn_fired_frames'], 'bo-', label='DNN')
+    df_dnn = df[['dnn_event_recall', 'dnn_fired_frames', 'total_test_frames']]
+    df_dnn = df_dnn.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
+    df_dnn['dnn_event_recall'] = df_dnn.index
+    df_dnn = df_dnn.sort_values(by=['dnn_event_recall'])
+    df_dnn['dnn_fired_frames_percent'] = df_dnn['dnn_fired_frames'].astype(float) / df_dnn['total_test_frames']
 
-    df1 = df[['jitl_event_recall', 'jitl_fired_frames']]
-    df1 = df1.groupby(['jitl_event_recall']).aggregate(min)
-    df1['jitl_event_recall'] = df1.index
-    df1 = df1.sort_values(by=['jitl_event_recall'])
-    ax1.plot(df1['jitl_event_recall'], df1['jitl_fired_frames'] - 5, 'ro-', label='JITL')  # noisify overlap
+    df_jitl = df[['jitl_event_recall', 'jitl_fired_frames', 'total_test_frames']]
+    df_jitl = df_jitl.groupby(['jitl_event_recall']).aggregate(min)
+    df_jitl['jitl_event_recall'] = df_jitl.index
+    df_jitl = df_jitl.sort_values(by=['jitl_event_recall'])
+    df_jitl['jitl_fired_frames_percent'] = df_jitl['jitl_fired_frames'].astype(float) / df_dnn['total_test_frames']
+
+    print(df_dnn)
+    print(df_jitl)
+
+    shared_recalls = set(df_dnn['dnn_event_recall'].tolist()).intersection(df_jitl['jitl_event_recall'].tolist())
+    df_dnn = df_dnn[df_dnn['dnn_event_recall'].isin(shared_recalls)]
+    df_jitl = df_jitl[df_jitl['jitl_event_recall'].isin(shared_recalls)]
+
+    ax1.plot(df_dnn['dnn_event_recall'], df_dnn['dnn_fired_frames_percent'], 'b-', label='DNN')
+    ax1.plot(df_jitl['jitl_event_recall'], df_jitl['jitl_fired_frames_percent']-0.0001, 'r-', label='JITL')  # noisify overlap
 
     if random_drop:
         df1 = df[['random_drop_event_recall', 'random_drop_fired_frames']]
