@@ -103,6 +103,8 @@ def eval_jit_svm_on_dataset(jit_data_file,
                             delta_t=10,
                             activate_threshold=5,
                             svm_cutoff=0.3):
+    if not isinstance(svm_cutoff, list):
+        svm_cutoff = [svm_cutoff]
     dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
     df = pd.read_pickle(jit_data_file)
     print df.iloc[:5]
@@ -115,15 +117,16 @@ def eval_jit_svm_on_dataset(jit_data_file,
 
     for video_id in unique_videos:
         for dnn_cutoff in dnn_cutoff_list:
-            print("-" * 50)
-            print("Emulating video '{}' w/ DNN cutoff {}".format(video_id, dnn_cutoff))
-            print("-" * 50)
-            rv = run_once_jit_svm_on_video(df, video_id,
-                                           dnn_cutoff=dnn_cutoff,
-                                           delta_t=delta_t,
-                                           activate_threshold=activate_threshold,
-                                           svm_cutoff=svm_cutoff)
-            result_df = result_df.append(rv, ignore_index=True)
+            for svm_cut in svm_cutoff:
+                print("-" * 50)
+                print("Emulating video '{}' w/ DNN cutoff {}, SVM cutoff {}".format(video_id, dnn_cutoff, svm_cut))
+                print("-" * 50)
+                rv = run_once_jit_svm_on_video(df, video_id,
+                                               dnn_cutoff=dnn_cutoff,
+                                               delta_t=delta_t,
+                                               activate_threshold=activate_threshold,
+                                               svm_cutoff=svm_cut)
+                result_df = result_df.append(rv, ignore_index=True)
 
     print result_df
     if output_file:
@@ -244,7 +247,8 @@ def run_once_jit_svm_on_video(df_in, video_id, dnn_cutoff,
                                     'jitl_samples': y_jit.shape[0],
                                     'jitl_prediction': pred_jit,
                                     'label': y,
-                                    'video_id': video_id},
+                                    'video_id': video_id,
+                                    'svm_cutoff': svm_cutoff},
                                    ignore_index=True)
     print res_df
     return res_df

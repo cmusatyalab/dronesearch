@@ -106,9 +106,9 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, ran
     all_unique_track_ids, video_tile_to_uniq_track_id = get_video_tile_to_uniq_track_id(base_dir, dataset)
     jitl_results = pd.read_pickle(jitl_result_file)
     # Starting analyzing event recall
-    dnn_cutoff_grps = jitl_results.groupby(['dnn_cutoff'])
+    dnn_svm_cutoff_grps = jitl_results.groupby(['dnn_cutoff', 'svm_cutoff'])
     df = pd.DataFrame()
-    for dnn_cutoff, results in dnn_cutoff_grps:
+    for dnn_svm_cutoff, results in dnn_svm_cutoff_grps:
         jitl_fired_imageids = []
         for imageids, prediction in zip(results['imageids'], results['jitl_prediction']):
             jitl_fired_imageids.extend([imageids[ind] for ind in np.nonzero(prediction)[0]])
@@ -120,9 +120,9 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, ran
         jitl_fired_track_ids = _calc_fired_events(video_tile_to_uniq_track_id, jitl_fired_imageids)
         assert len(jitl_fired_track_ids) <= len(dnn_fired_track_ids) <= len(all_unique_track_ids)
 
-        print("all track ids: {}".format(','.join(all_unique_track_ids)))
-        print("DNN fired track ids: {}".format(','.join(dnn_fired_track_ids)))
-        print("JITL fired track ids: {}".format(','.join(jitl_fired_track_ids)))
+        # print("all track ids: {}".format(','.join(all_unique_track_ids)))
+        # print("DNN fired track ids: {}".format(','.join(dnn_fired_track_ids)))
+        # print("JITL fired track ids: {}".format(','.join(jitl_fired_track_ids)))
 
         dnn_event_recall = float(len(dnn_fired_track_ids)) / len(all_unique_track_ids)
         jitl_event_recall = float(len(jitl_fired_track_ids)) / len(all_unique_track_ids)
@@ -130,7 +130,8 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, ran
 
         total_test_frames = annotation_stats.dataset[dataset]['total_test_frames'] * 2  # XXX we should actually tiles
 
-        dct = {'dnn_cutoff': dnn_cutoff,
+        dct = {'dnn_cutoff': dnn_svm_cutoff[0],
+               'svm_cutoff': dnn_svm_cutoff[1],
                'dnn_event_recall': dnn_event_recall,
                'jitl_event_recall': jitl_event_recall,
                'dnn_fired_frames': len(dnn_fired_imageids),
@@ -149,7 +150,7 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, ran
                 random_drop_fired_track_ids = _calc_fired_events(video_tile_to_uniq_track_id, random_drop_imageids)
                 random_drop_recall = float(len(random_drop_fired_track_ids)) / len(all_unique_track_ids)
                 rd_recalls.append(random_drop_recall)
-            print("DNN cutoff: {}. Random drop recalls: {}".format(dnn_cutoff, rd_recalls))
+            print("DNN cutoff: {}. Random drop recalls: {}".format(dnn_svm_cutoff, rd_recalls))
             dct.update({'random_drop_event_recall': np.mean(rd_recalls),
                         'random_drop_fired_frames': len(jitl_fired_imageids)})
 

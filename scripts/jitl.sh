@@ -37,10 +37,10 @@ if true; then
     python jitl_test.py eval_jit_svm_on_dataset \
         --jit_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
         --output_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
-        --dnn_cutoff_start 90 \
+        --dnn_cutoff_start 80 \
         --dnn_cutoff_end 100 \
-        --dnn_cutoff_step 1 \
-        --svm_cutoff 0.3 \
+        --dnn_cutoff_step 2 \
+        --svm_cutoff "[0.1, 0.3, 0.5, 0.7, 0.9]" \
         | tee ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log/eval_jit_svm_${DATASET}.log
 fi
 
