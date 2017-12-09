@@ -1116,7 +1116,7 @@ def interval_sampling_results(dataset_name,
     return interval_sampling_prediction_dict
 
 
-select_interval = [1, 10, 30, 60, 100, 300, 600]
+select_interval = [1, 10, 30, 60, 100, 300, 600, 1200, 1800]
 
 
 def all_random_select_predictions(intervals=select_interval):

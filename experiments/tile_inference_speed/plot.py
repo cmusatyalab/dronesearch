@@ -25,7 +25,7 @@ pgf_with_rc_fonts = {
     "font.family": "serif",
     "font.serif": [],                   # use latex default serif font
     "font.sans-serif": ["DejaVu Sans"], # use a specific sans-serif font
-    "font.size": 22
+    "font.size": 35
 }
 mpl.rcParams.update(pgf_with_rc_fonts)
 # matplotlib.use('Agg')
@@ -36,7 +36,8 @@ accuracy = np.array([0.574, 0.719, 0.893, 0.937, 0.964])
 processing_time = np.array([19.0, 29.0, 89.0, 328.0, 1280.0])
 fps = 1000.0 / processing_time
 
-fig, ax1 = plt.subplots()
+fig = plt.figure(figsize=(14, 8))
+ax1 = fig.add_subplot(1, 1, 1)
 t = 1 + np.arange(len(resolutions))
 ax1.plot(t, accuracy, 'b-', t, accuracy, 'bs')
 ax1.set_xlabel('Tile Resolution')

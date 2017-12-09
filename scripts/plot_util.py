@@ -22,7 +22,7 @@ pgf_with_rc_fonts = {
     "font.family": "serif",
     "font.serif": [],  # use latex default serif font
     "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
-    "font.size": 25
+    "font.size": 35
 }
 mpl.rcParams.update(pgf_with_rc_fonts)
 
