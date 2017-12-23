@@ -22,7 +22,7 @@ pgf_with_rc_fonts = {
     "font.family": "serif",
     "font.serif": [],  # use latex default serif font
     "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
-    "font.size": 25
+    "font.size": 35
 }
 mpl.rcParams.update(pgf_with_rc_fonts)
 
@@ -44,6 +44,13 @@ experiments = {
         dataset_name: os.path.join(
             dir_path, dataset_name,
             'experiments/classification_448_224_224_224_extra_negative/random_select'
+        )
+        for dataset_name in result_analysis.datasets.keys()
+    },
+    'random_select_and_filter': {
+        dataset_name: os.path.join(
+            dir_path, dataset_name,
+            'experiments/classification_448_224_224_224_extra_negative/random_select_and_filter'
         )
         for dataset_name in result_analysis.datasets.keys()
     },

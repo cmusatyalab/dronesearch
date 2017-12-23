@@ -32,7 +32,9 @@ def _calc_dataset_stats():
         interval_to_frames_event_recalls = collections.defaultdict(list)
         for interval, interval_predictions in predictions.iteritems():
             print('working on {}, interval {}'.format(dataset_name, interval))
-            event_recalls_per_interval = result_analysis.get_event_recall(
+            # since the generated probability for random select is 1
+            # therefore we use 0.5 as filtering
+            event_recalls_per_interval, _, _ = result_analysis.get_event_recall(
                 dataset_name, interval_predictions, [0.5])
             interval_to_frames_event_recalls[interval] = (
                 event_recalls_per_interval[0], len(interval_predictions))
@@ -53,7 +55,8 @@ def _plot_bar_graph_interval_to_event_recall(dataset_stats):
     N = len(dataset_stats['elephant'])
     ind = np.arange(N)
     width = 0.15
-    cmap = plt.cm.rainbow(np.linspace(0, 1, N))
+    # cmap = plt.cm.rainbow(np.linspace(0, 1, N))
+    cmap = ['r', 'g', 'gold', 'b']
     color = iter(cmap)
     plt.clf()
     fig = plt.figure(figsize=(10, 5))
@@ -64,6 +67,8 @@ def _plot_bar_graph_interval_to_event_recall(dataset_stats):
         event_recalls = []
         for interval, (event_recall, _) in sorted(
                 dataset_stats[dataset_name].iteritems(), key=lambda x: x[0]):
+            if interval in [1200, 1800]:
+                continue
             event_recalls.append(event_recall)
         rect = ax.bar(
             ind + width * dataset_idx, event_recalls, width, color=next(color))
@@ -125,8 +130,8 @@ if __name__ == '__main__':
         dataset_stats = _load_cache()
     else:
         dataset_stats = _calc_dataset_stats()
-    # _plot_bar_graph_interval_to_event_recall(dataset_stats)
-    _plot_line_graph_event_recall_to_bw(dataset_stats)
+    _plot_bar_graph_interval_to_event_recall(dataset_stats)
+    # _plot_line_graph_event_recall_to_bw(dataset_stats)
 
 # event_recalls, transmitted_frames = zip(*sorted_frames_event_recall_tuple)
 

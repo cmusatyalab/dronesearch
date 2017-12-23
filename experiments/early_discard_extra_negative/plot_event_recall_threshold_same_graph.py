@@ -16,7 +16,7 @@ pgf_with_rc_fonts = {
     "font.family": "serif",
     "font.serif": [],  # use latex default serif font
     "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
-    "font.size": 25
+    "font.size": 40
 }
 mpl.rcParams.update(pgf_with_rc_fonts)
 # mpl.use('Agg')
@@ -100,7 +100,7 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
         alpha=0.5,
         interpolate=True,
         label='True Positives')
-    ax2.fill_between(
+    fill_plot = ax2.fill_between(
         roc_threshold,
         fp + tp,
         tp,
@@ -109,16 +109,10 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
         alpha=0.5,
         interpolate=True,
         label='False Positives')
-    ax2.set_ylabel('Frame %', color='r')
+    ax2.set_ylabel('Frame Fraction', color='r')
     ax2.tick_params('y', colors='r')
     ax2.set_xlim([0, 1.05])
     ax2.set_ylim([0, 1.05])
-    plt.legend(
-        loc='upper center',
-        bbox_to_anchor=(0.5, 1.2),
-        ncol=3,
-        fancybox=True,
-        fontsize=20)
 
     print('\n\nploting event recall vs threshold for {}'.format(dataset_name))
     ax1 = ax2.twinx()
@@ -150,11 +144,40 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
 
     print('finished plotting event recall vs threshold. {} events'.format(
         len(fire_thresholds)))
-
     plt.savefig(
         'fig-event-recall-frame-percentage-vs-threshold-{}.pdf'.format(
             dataset_name),
         bbox_inches='tight')
+
+    figlegend = plt.figure(figsize=(4, 1))
+    import matplotlib.patches as mpatches
+    import matplotlib.lines as mlines
+    color_iter = iter(cmap)
+    colors = ['r']
+    for _ in range(2):
+        colors.append(next(color_iter))
+    labels = ('Transmitted', 'True Positives', 'False Positives')
+    patches = [
+        mpatches.Patch(color=pcolor, label=label, alpha=0.5)
+        for label, pcolor in zip(labels[1:], colors[1:])
+    ]
+    patches.insert(0,
+                   mlines.Line2D(
+                       [0, 0], [1, 0],
+                       color=colors[0],
+                       label=labels[0],
+                       linestyle='-',
+                       linewidth=1))
+    figlegend.legend(patches, labels, 'center', ncol=3)
+    figlegend.savefig(
+        'fig-event-recall-frame-percentage-legend.pdf', bbox_inches='tight')
+
+    # plt.legend(
+    #     loc='upper center',
+    #     bbox_to_anchor=(0.5, 1.2),
+    #     ncol=3,
+    #     fancybox=True,
+    #     fontsize=20)
 
 with open('plotted_event_recall.pkl', 'wb') as f:
     pickle.dump(event_recall_to_disk, f)
