@@ -76,9 +76,13 @@ def main(model_file, output_layer, input_height=224, input_width=224, input_mean
 
     latencies = []
     samples = create_samples(num_sample_per_run, input_height, input_width)
-    with tf.Session(graph=graph) as sess:
+    # needed for jetson to be able to allocate enough memory
+    # see https://devtalk.nvidia.com/default/topic/1029742/jetson-tx2/tensorflow-1-6-not-working-with-jetpack-3-2/1
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(graph=graph, config=config) as sess:
         # warm up
-        image_np = (np.random.rand(224, 224, 3) * 255).astype(np.uint8)
+        image_np = (np.random.rand(input_height, input_width, 3) * 255).astype(np.uint8)
         normalized_image = sess.run(normalized, {
             input_image: image_np
         })

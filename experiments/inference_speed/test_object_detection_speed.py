@@ -80,8 +80,12 @@ def main(model_name, input_height=224, input_width=224, num_sample_per_run=100, 
     detection_graph = load_graph(model_name)
     latencies = []
     samples = create_samples(num_sample_per_run, input_height, input_width)
+    # needed for jetson to be able to allocate enough memory
+    # see https://devtalk.nvidia.com/default/topic/1029742/jetson-tx2/tensorflow-1-6-not-working-with-jetpack-3-2/1
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
     with detection_graph.as_default():
-        with tf.Session(graph=detection_graph) as sess:
+        with tf.Session(graph=detection_graph, config=config) as sess:
             image_tensor, detection_boxes, detection_scores, detection_classes, num_detections = get_io_tensors(
                 detection_graph)
             # warm up
