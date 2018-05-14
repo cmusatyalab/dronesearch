@@ -25,7 +25,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Typeface;
-import android.media.Image;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -33,7 +32,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.util.Log;
-import android.util.Size;
 import android.util.TypedValue;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -45,15 +43,11 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import org.tensorflow.demo.env.BorderedText;
 import org.tensorflow.demo.env.ImageUtils;
 import org.tensorflow.demo.env.Logger;
-
-import static android.R.attr.path;
-import static android.R.attr.text;
-import static android.os.Environment.getExternalStorageDirectory;
-import static org.tensorflow.demo.R.id.results;
 
 
 // public class ClassifierActivity extends CameraActivity implements OnImageAvailableListener {
@@ -90,7 +84,7 @@ public class ClassifierActivity extends Activity {
     private Handler handler;
     private HandlerThread handlerThread;
 
-    // for classification
+/*    // for classification
     private static final int INPUT_SIZE = 224;
     // for detection
     private static final int INPUT_WIDTH = 1920;
@@ -103,8 +97,7 @@ public class ClassifierActivity extends Activity {
     private static final String MODEL_FILE = "file:///android_asset/faster_rcnn_resnet101_v1.pb";
     private static final String LOG_FILE_NAME = "tf_faster_rcnn_resnet101v1_android.txt";
     private static final String LABEL_FILE =
-            "file:///android_asset/imagenet_comp_graph_label_strings.txt";
-
+            "file:///android_asset/imagenet_comp_graph_label_strings.txt";*/
 
     private static final boolean MAINTAIN_ASPECT = true;
 
@@ -128,6 +121,7 @@ public class ClassifierActivity extends Activity {
     private static final String PERMISSION_CAMERA = Manifest.permission.CAMERA;
     private static final String PERMISSION_STORAGE = Manifest.permission.WRITE_EXTERNAL_STORAGE;
     private static final int PERMISSIONS_REQUEST = 1;
+    private static final String LOG_TAG = "experiment";
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -141,57 +135,64 @@ public class ClassifierActivity extends Activity {
                 TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics());
         borderedText = new BorderedText(textSizePx);
         borderedText.setTypeface(Typeface.MONOSPACE);
+        if (!hasPermission()) {
+            requestPermission();
+        }
 
+        // start experiment
+        for (Map.Entry<String, ExperimentConfig.ModelConfig> entry:
+                ExperimentConfig.configs.entrySet()){
+            Log.d(LOG_TAG, "Running experiment for " + entry.getKey());
+            run_experiment(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void run_experiment(String name, ExperimentConfig.ModelConfig config) {
         try {
-            if (EXPERIMENT_MODE.equals("classification")) {
+            if (config.type == ExperimentConfig.ModelConfig.Type.CLASSIFIER){
                 classifier =
                         TensorFlowImageClassifier.create(
                                 getAssets(),
-                                MODEL_FILE,
-                                LABEL_FILE,
-                                INPUT_SIZE,
-                                IMAGE_MEAN,
-                                IMAGE_STD,
-                                INPUT_NAME,
-                                OUTPUT_NAME);
-            } else if (EXPERIMENT_MODE.equals("detection")) {
+                                config.model_file,
+                                config.label_file,
+                                config.input_size,
+                                config.image_mean,
+                                config.image_std,
+                                config.input_name,
+                                config.output_name);
+            } else if (config.type == ExperimentConfig.ModelConfig.Type.DETECTOR){
                 classifier = TensorFlowObjectDetectionAPIModel.create(
-                        getAssets(), MODEL_FILE, LABEL_FILE, INPUT_WIDTH, INPUT_HEIGHT);
-            } else {
-                Log.e("classifieractivity", "unknown experiment mode " + EXPERIMENT_MODE);
+                        getAssets(), config.model_file, config.label_file, config.input_size,
+                        config.input_size);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-
-        imageWidth = 1920;
-        imageHeight = 1080;
-
+        // keep the matrix transformation just in case for imageWidth or height does not equal to
+        // model input_size
         LOGGER.i("Initializing at size %dx%d", imageWidth, imageHeight);
         rgbFrameBitmap = Bitmap.createBitmap(imageWidth, imageHeight, Config.ARGB_8888);
-        croppedBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Config.ARGB_8888);
+        croppedBitmap = Bitmap.createBitmap(config.input_size, config.input_size, Config.ARGB_8888);
 
         sensorOrientation = 90;
         frameToCropTransform = ImageUtils.getTransformationMatrix(
                 imageWidth, imageHeight,
-                INPUT_SIZE, INPUT_SIZE,
+                config.input_size, config.input_size,
                 sensorOrientation, MAINTAIN_ASPECT);
 
         cropToFrameTransform = new Matrix();
         frameToCropTransform.invert(cropToFrameTransform);
 
-        logFile = new File(Environment.getExternalStorageDirectory().toString() + "/" + LOG_FILE_NAME);
+        String log_file_name = "tf_" + name + ".txt";
+        logFile = new File(Environment.getExternalStorageDirectory().toString() + "/" + log_file_name);
         try {
             logFile.createNewFile();
             logBuf = new BufferedWriter(new FileWriter(logFile, false));
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        if (!hasPermission()) {
-            requestPermission();
-        }
+        infer();
     }
 
     private boolean hasPermission() {
@@ -223,7 +224,6 @@ public class ClassifierActivity extends Activity {
         handlerThread = new HandlerThread("inference");
         handlerThread.start();
         handler = new Handler(handlerThread.getLooper());
-        launchExperiment();
     }
 
     @Override
@@ -276,7 +276,7 @@ public class ClassifierActivity extends Activity {
         return b;
     }
 
-    private void launchExperiment() {
+    private void infer() {
         String path = Environment.getExternalStorageDirectory().toString() + "/sample-images";
         Log.d("Files", "Path: " + path);
         File directory = new File(path);
@@ -371,134 +371,4 @@ public class ClassifierActivity extends Activity {
         runInBackground(task);
         return task;
     }
-
-
-//  @Override
-//  protected int getLayoutId() {
-//    return R.layout.camera_connection_fragment;
-//  }
-//
-
-//  @Override
-//  protected Size getDesiredPreviewFrameSize() {
-//    return DESIRED_PREVIEW_SIZE;
-//  }
-//
-//  private static final float TEXT_SIZE_DIP = 10;
-
-//  @Override
-//  public void onPreviewSizeChosen(final Size size, final int rotation) {
-//    final float textSizePx = TypedValue.applyDimension(
-//        TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
-//    borderedText = new BorderedText(textSizePx);
-//    borderedText.setTypeface(Typeface.MONOSPACE);
-//
-//    classifier =
-//        TensorFlowImageClassifier.create(
-//            getAssets(),
-//            MODEL_FILE,
-//            LABEL_FILE,
-//            INPUT_SIZE,
-//            IMAGE_MEAN,
-//            IMAGE_STD,
-//            INPUT_NAME,
-//            OUTPUT_NAME);
-//
-//    imageWidth = size.getWidth();
-//    imageHeight = size.getHeight();
-//
-//    final Display display = getWindowManager().getDefaultDisplay();
-//    final int screenOrientation = display.getRotation();
-//
-//    LOGGER.i("Sensor orientation: %d, Screen orientation: %d", rotation, screenOrientation);
-//
-//    sensorOrientation = rotation + screenOrientation;
-//
-//    LOGGER.i("Initializing at size %dx%d", imageWidth, imageHeight);
-//    rgbFrameBitmap = Bitmap.createBitmap(imageWidth, imageHeight, Config.ARGB_8888);
-//    croppedBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Config.ARGB_8888);
-//
-//    frameToCropTransform = ImageUtils.getTransformationMatrix(
-//        imageWidth, imageHeight,
-//        INPUT_SIZE, INPUT_SIZE,
-//        sensorOrientation, MAINTAIN_ASPECT);
-//
-//    cropToFrameTransform = new Matrix();
-//    frameToCropTransform.invert(cropToFrameTransform);
-//
-//    addCallback(
-//        new DrawCallback() {
-//          @Override
-//          public void drawCallback(final Canvas canvas) {
-//            renderDebug(canvas);
-//          }
-//        });
-//  }
-
-//  @Override
-//  protected void processImage() {
-//    rgbFrameBitmap.setPixels(getRgbBytes(), 0, imageWidth, 0, 0, imageWidth, imageHeight);
-//    final Canvas canvas = new Canvas(croppedBitmap);
-//    canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
-//
-//    // For examining the actual TF input.
-//    if (SAVE_PREVIEW_BITMAP) {
-//      ImageUtils.saveBitmap(croppedBitmap);
-//    }
-//    runInBackground(
-//        new Runnable() {
-//          @Override
-//          public void run() {
-//            final long startTime = SystemClock.uptimeMillis();
-//            final List<Classifier.Recognition> results = classifier.recognizeImage(croppedBitmap);
-//            lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
-//            LOGGER.i("Detect: %s", results);
-//            cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
-//            if (resultsView == null) {
-//              resultsView = (ResultsView) findViewById(R.id.results);
-//            }
-//            resultsView.setResults(results);
-//            requestRender();
-//            readyForNextImage();
-//          }
-//        });
-//  }
-
-//  @Override
-//  public void onSetDebug(boolean debug) {
-//    classifier.enableStatLogging(debug);
-//  }
-//
-//  private void renderDebug(final Canvas canvas) {
-//    if (!isDebug()) {
-//      return;
-//    }
-//    final Bitmap copy = cropCopyBitmap;
-//    if (copy != null) {
-//      final Matrix matrix = new Matrix();
-//      final float scaleFactor = 2;
-//      matrix.postScale(scaleFactor, scaleFactor);
-//      matrix.postTranslate(
-//          canvas.getWidth() - copy.getWidth() * scaleFactor,
-//          canvas.getHeight() - copy.getHeight() * scaleFactor);
-//      canvas.drawBitmap(copy, matrix, new Paint());
-//
-//      final Vector<String> lines = new Vector<String>();
-//      if (classifier != null) {
-//        String statString = classifier.getStatString();
-//        String[] statLines = statString.split("\n");
-//        for (String line : statLines) {
-//          lines.add(line);
-//        }
-//      }
-//
-//      lines.add("Frame: " + imageWidth + "x" + imageHeight);
-//      lines.add("Crop: " + copy.getWidth() + "x" + copy.getHeight());
-//      lines.add("View: " + canvas.getWidth() + "x" + canvas.getHeight());
-//      lines.add("Rotation: " + sensorOrientation);
-//      lines.add("Inference time: " + lastProcessingTimeMs + "ms");
-//
-//      borderedText.drawLines(canvas, 10, canvas.getHeight() - 10, lines);
-//    }
-//  }
 }
