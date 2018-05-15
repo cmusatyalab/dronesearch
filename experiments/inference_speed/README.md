@@ -60,7 +60,7 @@ https://github.com/tensorflow/tensorflow/tree/r1.8/tensorflow/examples/android
     with tf.Session(graph=detection_graph, config=config) as sess:
         ...
 ```
-3. Remember to use jetson_clocks.sh to start the fun when choosing the highest performance model.
+3. Remember to use jetson_clocks.sh to start the fan when choosing the highest performance model.
 
 ## Notes on Server
 1. Set the performance to be highest use:
