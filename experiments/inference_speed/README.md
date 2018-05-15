@@ -35,7 +35,9 @@ python test_object_detection_speed.py 2>&1 | tee ~/mobisys18/experiments/inferen
 * Inception V3: InceptionV3/Predictions/Reshape_1
 
 ## Android
-The android app needs to be placed inside the tensorflow src directories for successful build.
+Push the modified file in [android](android) into tensorflow Android example app.
+The experiment version used tf 1.8.0 release.
+https://github.com/tensorflow/tensorflow/tree/r1.8/tensorflow/examples/android
 
 ## Working Git Repos for Tensorflow Wheel for Jetson TX2
 * 1.8: https://github.com/peterlee0127/tensorflow-nvJetson

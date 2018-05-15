@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.tensorflow.demo.env.BorderedText;
 import org.tensorflow.demo.env.ImageUtils;
 import org.tensorflow.demo.env.Logger;
@@ -84,20 +85,24 @@ public class ClassifierActivity extends Activity {
     private Handler handler;
     private HandlerThread handlerThread;
 
-/*    // for classification
-    private static final int INPUT_SIZE = 224;
-    // for detection
-    private static final int INPUT_WIDTH = 1920;
-    private static final int INPUT_HEIGHT = 1080;
-    private static final int IMAGE_MEAN = 128;
-    private static final float IMAGE_STD = 128;
-    private static final String EXPERIMENT_MODE = "detection";
-    private static final String INPUT_NAME = "input";
-    private static final String OUTPUT_NAME = "MobilenetV1/Predictions/Reshape_1";
-    private static final String MODEL_FILE = "file:///android_asset/faster_rcnn_resnet101_v1.pb";
-    private static final String LOG_FILE_NAME = "tf_faster_rcnn_resnet101v1_android.txt";
-    private static final String LABEL_FILE =
-            "file:///android_asset/imagenet_comp_graph_label_strings.txt";*/
+    /*    // for classification
+        private static final int INPUT_SIZE = 224;
+        // for detection
+        private static final int INPUT_WIDTH = 1920;
+        private static final int INPUT_HEIGHT = 1080;
+        private static final int IMAGE_MEAN = 128;
+        private static final float IMAGE_STD = 128;
+        private static final String EXPERIMENT_MODE = "detection";
+        private static final String INPUT_NAME = "input";
+        private static final String OUTPUT_NAME = "MobilenetV1/Predictions/Reshape_1";
+        private static final String MODEL_FILE = "file:///android_asset/faster_rcnn_resnet101_v1.pb";
+        private static final String LOG_FILE_NAME = "tf_faster_rcnn_resnet101v1_android.txt";
+        private static final String LABEL_FILE =
+                "file:///android_asset/imagenet_comp_graph_label_strings.txt";*/
+    //input image for classification should be 224x224, for ssd detection 300x300, for
+    // faster_rcnn detection 600x600
+    private static String imageDir;
+    // cantains the test images
 
     private static final boolean MAINTAIN_ASPECT = true;
 
@@ -115,6 +120,7 @@ public class ClassifierActivity extends Activity {
     private File logFile;
     private BufferedWriter logBuf;
     private long totalTime;
+    private DescriptiveStatistics stats;
 
     private volatile boolean isProcessing = false;
 
@@ -139,9 +145,16 @@ public class ClassifierActivity extends Activity {
             requestPermission();
         }
 
+        // handler thread needed to get results back
+        handlerThread = new HandlerThread("inference");
+        handlerThread.start();
+        handler = new Handler(handlerThread.getLooper());
+
         // start experiment
-        for (Map.Entry<String, ExperimentConfig.ModelConfig> entry:
-                ExperimentConfig.configs.entrySet()){
+        for (Map.Entry<String, ExperimentConfig.ModelConfig> entry :
+                ExperimentConfig.configs.entrySet()) {
+            stats = new DescriptiveStatistics();
+            imageDir = entry.getValue().image_dir;
             Log.d(LOG_TAG, "Running experiment for " + entry.getKey());
             run_experiment(entry.getKey(), entry.getValue());
         }
@@ -149,7 +162,7 @@ public class ClassifierActivity extends Activity {
 
     private void run_experiment(String name, ExperimentConfig.ModelConfig config) {
         try {
-            if (config.type == ExperimentConfig.ModelConfig.Type.CLASSIFIER){
+            if (config.type == ExperimentConfig.ModelConfig.Type.CLASSIFIER) {
                 classifier =
                         TensorFlowImageClassifier.create(
                                 getAssets(),
@@ -160,10 +173,9 @@ public class ClassifierActivity extends Activity {
                                 config.image_std,
                                 config.input_name,
                                 config.output_name);
-            } else if (config.type == ExperimentConfig.ModelConfig.Type.DETECTOR){
+            } else if (config.type == ExperimentConfig.ModelConfig.Type.DETECTOR) {
                 classifier = TensorFlowObjectDetectionAPIModel.create(
-                        getAssets(), config.model_file, config.label_file, config.input_size,
-                        config.input_size);
+                        getAssets(), config.model_file, config.label_file, config.input_size);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -171,6 +183,8 @@ public class ClassifierActivity extends Activity {
 
         // keep the matrix transformation just in case for imageWidth or height does not equal to
         // model input_size
+        imageWidth = config.input_size;
+        imageHeight = config.input_size;
         LOGGER.i("Initializing at size %dx%d", imageWidth, imageHeight);
         rgbFrameBitmap = Bitmap.createBitmap(imageWidth, imageHeight, Config.ARGB_8888);
         croppedBitmap = Bitmap.createBitmap(config.input_size, config.input_size, Config.ARGB_8888);
@@ -184,7 +198,7 @@ public class ClassifierActivity extends Activity {
         cropToFrameTransform = new Matrix();
         frameToCropTransform.invert(cropToFrameTransform);
 
-        String log_file_name = "tf_" + name + ".txt";
+        String log_file_name = "tf_" + name + "_android_no_preprocessing.txt";
         logFile = new File(Environment.getExternalStorageDirectory().toString() + "/" + log_file_name);
         try {
             logFile.createNewFile();
@@ -220,10 +234,6 @@ public class ClassifierActivity extends Activity {
     public synchronized void onResume() {
         LOGGER.d("onResume " + this);
         super.onResume();
-
-        handlerThread = new HandlerThread("inference");
-        handlerThread.start();
-        handler = new Handler(handlerThread.getLooper());
     }
 
     @Override
@@ -276,27 +286,39 @@ public class ClassifierActivity extends Activity {
         return b;
     }
 
+    private String getTestImagePath(String fileName) {
+        return Environment.getExternalStorageDirectory().getAbsolutePath() + "/" +
+                imageDir + "/" + fileName;
+    }
+
     private void infer() {
-        String path = Environment.getExternalStorageDirectory().toString() + "/sample-images";
-        Log.d("Files", "Path: " + path);
+        String path = Environment.getExternalStorageDirectory().toString() + "/" +
+                imageDir;
+        Log.d(LOG_TAG, "Path: " + path);
         File directory = new File(path);
         File[] files = directory.listFiles();
-        Log.d("Files", "Size: " + files.length);
+        Log.d(LOG_TAG, "Size: " + files.length);
+        String file_name;
+        String image_path;
+        Runnable task;
 
         // warm up
-        String file_name = files[0].getName();
-        Log.d("classifieractivity", "jj warm up with:" + files[0].getName());
-        String image_path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/sample-images/" + file_name;
-        isProcessing = true;
-        Runnable task = processImage(image_path, false);
-        while (isProcessing) {
-            try {
-                synchronized (task) {
-                    task.wait(1000);
+        for (int i = 0; i < 3; i++){
+            file_name = files[0].getName();
+            Log.d(LOG_TAG, "jj warm up with:" + files[0].getName());
+            image_path = getTestImagePath(file_name);
+            isProcessing = true;
+
+            task = processImage(image_path, false);
+            while (isProcessing) {
+                try {
+                    synchronized (task) {
+                        task.wait(1000);
+                    }
+                } catch (InterruptedException e) {
+                    Log.e(LOG_TAG, "error in waiting classification to finish");
+                    e.printStackTrace();
                 }
-            } catch (InterruptedException e) {
-                Log.e("classifieractivity", "error in waiting classification to finish");
-                e.printStackTrace();
             }
         }
 
@@ -304,8 +326,8 @@ public class ClassifierActivity extends Activity {
         for (int rep = 0; rep < 3; rep++) {
             for (int i = 0; i < files.length; i++) {
                 file_name = files[i].getName();
-                Log.d("classifieractivity", "jj FileName:" + files[i].getName());
-                image_path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/sample-images/" + file_name;
+                Log.d(LOG_TAG, "jj FileName:" + files[i].getName());
+                image_path = getTestImagePath(file_name);
                 isProcessing = true;
                 task = processImage(image_path, true);
                 while (isProcessing) {
@@ -314,7 +336,7 @@ public class ClassifierActivity extends Activity {
                             task.wait(1000);
                         }
                     } catch (InterruptedException e) {
-                        Log.e("classifieractivity", "error in waiting classification to finish");
+                        Log.e(LOG_TAG, "error in waiting classification to finish");
                         e.printStackTrace();
                     }
                 }
@@ -322,12 +344,22 @@ public class ClassifierActivity extends Activity {
             }
         }
         try {
+            logBuf.write("mean (ms): ");
+            logBuf.write(String.valueOf(stats.getMean()));
+            logBuf.newLine();
+            logBuf.write("std (ms): ");
+            logBuf.write(String.valueOf(stats.getStandardDeviation()));
+            logBuf.newLine();
             logBuf.flush();
             logBuf.close();
+            LOGGER.i("saved latencies to file: " + logFile.getAbsolutePath());
         } catch (IOException e) {
             e.printStackTrace();
         }
-        LOGGER.i("jj totalTime: %s ms, processed image num: %d", totalTime, processing_num);
+        LOGGER.i("jj totalTime: %s ms, processed image num: %d", totalTime,
+                processing_num);
+        LOGGER.i("jj average time: %s ms, std devication: %s ms", stats.getMean(), stats
+                .getStandardDeviation());
     }
 
     protected Runnable processImage(String image_path, final boolean logTime) {
@@ -347,13 +379,14 @@ public class ClassifierActivity extends Activity {
         Runnable task = new Runnable() {
             @Override
             public void run() {
-                final long startTime = SystemClock.uptimeMillis();
                 final Canvas canvas = new Canvas(croppedBitmap);
                 canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
+                final long startTime = SystemClock.uptimeMillis();
                 final List<Classifier.Recognition> results = classifier.recognizeImage(croppedBitmap);
                 lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
                 LOGGER.i("jj detection took: %s ms, results: %s", lastProcessingTimeMs, results);
                 if (logTime) {
+                    stats.addValue((double)lastProcessingTimeMs);
                     totalTime += lastProcessingTimeMs;
                     try {
                         logBuf.append(String.valueOf(lastProcessingTimeMs));
