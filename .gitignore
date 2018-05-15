@@ -11,3 +11,6 @@ redis
 *.pdf
 *.pkl
 *.mp4
+ssd_*
+faster_rcnn_*
+tfhub_cache
