@@ -16,7 +16,7 @@ pgf_with_rc_fonts = {
     "font.family": "serif",
     "font.serif": [],  # use latex default serif font
     "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
-    "font.size": 40
+    "font.size": 36
 }
 mpl.rcParams.update(pgf_with_rc_fonts)
 # mpl.use('Agg')
@@ -109,6 +109,7 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
         alpha=0.5,
         interpolate=True,
         label='False Positives')
+    ax2.set_xlabel('Cutoff Threshold')
     ax2.set_ylabel('Frame Fraction', color='r')
     ax2.tick_params('y', colors='r')
     ax2.set_xlim([0, 1.05])
@@ -135,7 +136,7 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
     fire_thresholds = np.insert(fire_thresholds, 0, 0)
     event_recall = np.insert(event_recall, 0, 1)
     ax1.plot(fire_thresholds, event_recall, 'b-', label='Event Recall')
-    ax1.set_xlabel('Cutoff Threshold')
+
     ax1.set_ylabel('Event Recall', color='b')
     ax1.tick_params('y', colors='b')
     ax1.tick_params('y')
@@ -149,28 +150,28 @@ for dataset_name in ['okutama', 'stanford', 'raft', 'elephant']:
             dataset_name),
         bbox_inches='tight')
 
-    figlegend = plt.figure(figsize=(4, 1))
-    import matplotlib.patches as mpatches
-    import matplotlib.lines as mlines
-    color_iter = iter(cmap)
-    colors = ['r']
-    for _ in range(2):
-        colors.append(next(color_iter))
-    labels = ('Transmitted', 'True Positives', 'False Positives')
-    patches = [
-        mpatches.Patch(color=pcolor, label=label, alpha=0.5)
-        for label, pcolor in zip(labels[1:], colors[1:])
-    ]
-    patches.insert(0,
-                   mlines.Line2D(
-                       [0, 0], [1, 0],
-                       color=colors[0],
-                       label=labels[0],
-                       linestyle='-',
-                       linewidth=1))
-    figlegend.legend(patches, labels, 'center', ncol=3)
-    figlegend.savefig(
-        'fig-event-recall-frame-percentage-legend.pdf', bbox_inches='tight')
+    # figlegend = plt.figure(figsize=(4, 1))
+    # import matplotlib.patches as mpatches
+    # import matplotlib.lines as mlines
+    # color_iter = iter(cmap)
+    # colors = ['r']
+    # for _ in range(2):
+    #     colors.append(next(color_iter))
+    # labels = ('Transmitted', 'True Positives', 'False Positives')
+    # patches = [
+    #     mpatches.Patch(color=pcolor, label=label, alpha=0.5)
+    #     for label, pcolor in zip(labels[1:], colors[1:])
+    # ]
+    # patches.insert(0,
+    #                mlines.Line2D(
+    #                    [0, 0], [1, 0],
+    #                    color=colors[0],
+    #                    label=labels[0],
+    #                    linestyle='-',
+    #                    linewidth=1))
+    # figlegend.legend(patches, labels, 'center', ncol=3)
+    # figlegend.savefig(
+    #     'fig-event-recall-frame-percentage-legend.pdf', bbox_inches='tight')
 
     # plt.legend(
     #     loc='upper center',

@@ -37,14 +37,16 @@ def get_all_video_iter(dataset_ids=[]):
                    os.path.join(dataset_name, 'images', video_id))
 
 
-def encode_datasets(dataset_ids, output_dir, crf=17):
+def encode_datasets(dataset_ids, output_dir, crf=23):
     video_iter = get_all_video_iter(dataset_ids)
     procs = []
     io_util.create_dir_if_not_exist(output_dir)
     for dataset_video_id, frame_sequence_dir in video_iter:
         output_file_path = os.path.join(output_dir, dataset_video_id + '.mp4')
         procs.append(
-            encode_images_to_h264(frame_sequence_dir, output_file_path, crf=crf))
+            encode_images_to_h264(
+                frame_sequence_dir, output_file_path, crf=crf))
+
     for proc in procs:
         stdout_value, stderr_value = proc.communicate()
         ret_val = proc.returncode
@@ -91,12 +93,25 @@ def get_jpeg_size_info(dataset_ids, unit='KB'):
     #     format(np.sum(frame_sequence_sizes), np.sum(jpeg_images_num), ))
 
 
+def encode_video_h264(video_path, output_file_path, crf):
+    args = [
+        'ffmpeg', '-i',
+        video_path, '-vcodec', 'libx264',
+        '-vf', "scale=trunc(iw/2)*2:trunc(ih/2)*2", '-crf',
+        str(crf), output_file_path
+    ]
+    logger.debug(' '.join(args))
+    proc = subprocess.Popen(
+        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return proc
+
+
 def encode_images_to_h264(frame_sequence_dir, output_file_path, crf):
     args = [
         'ffmpeg', '-f', 'image2', '-framerate', '30', '-i',
         os.path.join(frame_sequence_dir, '%010d.jpg'), '-vcodec', 'libx264',
-        '-crf', '17',
-        output_file_path
+        '-vf', "scale=trunc(iw/2)*2:trunc(ih/2)*2", '-crf',
+        str(crf), output_file_path
     ]
     logger.debug(' '.join(args))
     proc = subprocess.Popen(
