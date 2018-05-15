@@ -1,0 +1,11 @@
+INFO:tensorflow:Using model: faster_rcnn_resnet101_coco_2017_11_08
+2018-05-15 01:33:05.277553: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:865] ARM64 does not support NUMA - returning NUMA node zero
+2018-05-15 01:33:05.277753: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1356] Found device 0 with properties: 
+name: NVIDIA Tegra X2 major: 6 minor: 2 memoryClockRate(GHz): 1.3005
+pciBusID: 0000:00:00.0
+totalMemory: 7.67GiB freeMemory: 4.55GiB
+2018-05-15 01:33:05.277807: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1435] Adding visible gpu devices: 0
+2018-05-15 01:33:06.571025: I tensorflow/core/common_runtime/gpu/gpu_device.cc:923] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-05-15 01:33:06.571123: I tensorflow/core/common_runtime/gpu/gpu_device.cc:929]      0 
+2018-05-15 01:33:06.571146: I tensorflow/core/common_runtime/gpu/gpu_device.cc:942] 0:   N 
+2018-05-15 01:33:06.571317: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1053] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 4172 MB memory) -> physical GPU (device: 0, name: NVIDIA Tegra X2, pci bus id: 0000:00:00.0, compute capability: 6.2)

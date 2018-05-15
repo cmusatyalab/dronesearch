@@ -1,0 +1,155 @@
+INFO:tensorflow:Using model: faster_rcnn_inception_v2_coco_2017_11_08
+2018-05-15 01:32:12.800023: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:865] ARM64 does not support NUMA - returning NUMA node zero
+2018-05-15 01:32:12.800187: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1356] Found device 0 with properties: 
+name: NVIDIA Tegra X2 major: 6 minor: 2 memoryClockRate(GHz): 1.3005
+pciBusID: 0000:00:00.0
+totalMemory: 7.67GiB freeMemory: 4.74GiB
+2018-05-15 01:32:12.800231: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1435] Adding visible gpu devices: 0
+2018-05-15 01:32:14.085709: I tensorflow/core/common_runtime/gpu/gpu_device.cc:923] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-05-15 01:32:14.085805: I tensorflow/core/common_runtime/gpu/gpu_device.cc:929]      0 
+2018-05-15 01:32:14.085827: I tensorflow/core/common_runtime/gpu/gpu_device.cc:942] 0:   N 
+2018-05-15 01:32:14.086000: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1053] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 4380 MB memory) -> physical GPU (device: 0, name: NVIDIA Tegra X2, pci bus id: 0000:00:00.0, compute capability: 6.2)
+2018-05-15 01:32:29.014633: E tensorflow/stream_executor/cuda/cuda_driver.cc:936] failed to allocate 4.00G (4294967296 bytes) from device: CUDA_ERROR_OUT_OF_MEMORY
+2018-05-15 01:32:37.423444: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.441605: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.443062: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.444509: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.445859: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.447181: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.448528: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.449983: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.451416: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452340: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452447: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452639: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452731: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452821: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452909: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.452996: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453081: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453166: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453251: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453338: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453421: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453506: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453590: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453692: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453779: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453864: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.453949: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454033: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454117: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454200: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454282: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454365: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454450: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454534: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454629: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454718: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454800: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454886: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.454970: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455059: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455144: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455225: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455316: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455407: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455494: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455585: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455671: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455759: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455845: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.455932: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456021: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456110: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456199: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456285: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456375: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456459: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456544: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456628: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456714: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456799: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456886: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.456970: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457057: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457142: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457227: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457314: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457399: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457483: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457567: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457668: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457761: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457848: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.457935: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458021: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458108: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458193: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458278: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458363: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458449: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458536: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458625: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458713: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458799: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458883: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.458968: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.459055: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.459143: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.459229: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.459417: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+2018-05-15 01:32:37.459527: W tensorflow/core/framework/op_kernel.cc:1318] OP_REQUIRES failed at where_op.cc:331 : Internal: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+Traceback (most recent call last):
+  File "test_object_detection_speed.py", line 127, in <module>
+    fire.Fire(main)
+  File "/usr/local/lib/python2.7/dist-packages/fire/core.py", line 127, in Fire
+    component_trace = _Fire(component, args, context, name)
+  File "/usr/local/lib/python2.7/dist-packages/fire/core.py", line 366, in _Fire
+    component, remaining_args)
+  File "/usr/local/lib/python2.7/dist-packages/fire/core.py", line 542, in _CallCallable
+    result = fn(*varargs, **kwargs)
+  File "test_object_detection_speed.py", line 104, in main
+    image_tensor: image_np_expanded
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/client/session.py", line 900, in run
+    run_metadata_ptr)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/client/session.py", line 1135, in _run
+    feed_dict_tensor, options, run_metadata)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/client/session.py", line 1316, in _do_run
+    run_metadata)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/client/session.py", line 1335, in _do_call
+    raise type(e)(node_def, op, message)
+tensorflow.python.framework.errors_impl.InternalError: WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+	 [[Node: SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/FilterGreaterThan_39/Where = Where[T=DT_BOOL, _device="/job:localhost/replica:0/task:0/device:GPU:0"](SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/FilterGreaterThan_39/Greater)]]
+	 [[Node: SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/ChangeCoordinateFrame_7/Scale/concat/_775 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/device:CPU:0", send_device="/job:localhost/replica:0/task:0/device:GPU:0", send_device_incarnation=1, tensor_name="edge_9534_...ale/concat", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:CPU:0"](^_cloopSecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/TensorArrayReadV3_3/_11)]]
+
+Caused by op u'SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/FilterGreaterThan_39/Where', defined at:
+  File "test_object_detection_speed.py", line 127, in <module>
+    fire.Fire(main)
+  File "/usr/local/lib/python2.7/dist-packages/fire/core.py", line 127, in Fire
+    component_trace = _Fire(component, args, context, name)
+  File "/usr/local/lib/python2.7/dist-packages/fire/core.py", line 366, in _Fire
+    component, remaining_args)
+  File "/usr/local/lib/python2.7/dist-packages/fire/core.py", line 542, in _CallCallable
+    result = fn(*varargs, **kwargs)
+  File "test_object_detection_speed.py", line 83, in main
+    detection_graph = load_graph(model_name)
+  File "test_object_detection_speed.py", line 47, in load_graph
+    tf.import_graph_def(od_graph_def, name='')
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/util/deprecation.py", line 432, in new_func
+    return func(*args, **kwargs)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/framework/importer.py", line 513, in import_graph_def
+    _ProcessNewOps(graph)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/framework/importer.py", line 303, in _ProcessNewOps
+    for new_op in graph._add_new_tf_operations(compute_devices=False):  # pylint: disable=protected-access
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/framework/ops.py", line 3540, in _add_new_tf_operations
+    for c_op in c_api_util.new_tf_operations(self)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/framework/ops.py", line 3428, in _create_op_from_tf_operation
+    ret = Operation(c_op, self)
+  File "/home/junjuew/tf-1.8/local/lib/python2.7/site-packages/tensorflow/python/framework/ops.py", line 1718, in __init__
+    self._traceback = self._graph._extract_stack()  # pylint: disable=protected-access
+
+InternalError (see above for traceback): WhereOp: Could not launch cub::DeviceSelect::Flagged to copy indices out, status: too many resources requested for launch
+	 [[Node: SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/FilterGreaterThan_39/Where = Where[T=DT_BOOL, _device="/job:localhost/replica:0/task:0/device:GPU:0"](SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/FilterGreaterThan_39/Greater)]]
+	 [[Node: SecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/MultiClassNonMaxSuppression/ChangeCoordinateFrame_7/Scale/concat/_775 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/device:CPU:0", send_device="/job:localhost/replica:0/task:0/device:GPU:0", send_device_incarnation=1, tensor_name="edge_9534_...ale/concat", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:CPU:0"](^_cloopSecondStagePostprocessor/BatchMultiClassNonMaxSuppression/map/while/TensorArrayReadV3_3/_11)]]
+

@@ -30,25 +30,27 @@ if false; then
 fi
 
 # Run simulation
+# Interesting cutoff range:
+# Okutama, elephant: 0.90~0.99; stanford, raft: 0.8~1.0; stanford
 if true; then
     mkdir -p ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log
     python jitl_test.py eval_jit_svm_on_dataset \
-        --jit_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input-maxpool.pkl \
+        --jit_data_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_input.pkl \
         --output_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
         --dnn_cutoff_start 80 \
         --dnn_cutoff_end 100 \
         --dnn_cutoff_step 2 \
-        --svm_cutoff 0.3 \
+        --svm_cutoff "[0.1, 0.3, 0.5, 0.7, 0.9]" \
         | tee ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/log/eval_jit_svm_${DATASET}.log
 fi
 
 # Plot
 if true; then
-    echo ""
-    echo "Plotting frames vs DNN cutoff"
-    python jitl_plot.py frames_vs_dnn_cutoff \
-        --jitl_result_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
-        --savefig ${MY_BASE_DIR}/experiments/jitl/figure/fig-jitl-${DATASET}-frame.pdf
+#    echo ""
+#    echo "Plotting frames vs DNN cutoff"
+#    python jitl_plot.py frames_vs_dnn_cutoff \
+#        --jitl_result_file ${MY_BASE_DIR}/processed_dataset/${DATASET}/experiments/jitl/jitl_result.pkl \
+#        --savefig ${MY_BASE_DIR}/experiments/jitl/figure/fig-jitl-${DATASET}-frame.pdf
 
     echo ""
     echo "Plotting frames vs event recall"

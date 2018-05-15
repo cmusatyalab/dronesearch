@@ -249,3 +249,62 @@ for dataset_name, stats in event_recall_stats.iteritems():
     plt.savefig(
         'fig-{}-precision-vs-event-recall.pdf'.format(dataset_name),
         bbox_inches='tight')
+
+
+def get_video_tile_to_uniq_track_id(base_dir, dataset):
+    load_annotation_func = annotation_stats.dataset[dataset][
+        'annotation_func']
+    labels = annotation_stats.dataset[dataset]['labels']
+    annotation_dir = os.path.join(base_dir, datasets[dataset][0])
+    annotations = load_annotation_func(annotation_dir)
+    test_video_ids = annotation_stats.dataset[dataset]['test']
+    annotations = annotations[annotations['videoid'].isin(test_video_ids)]
+    annotations = annotation.filter_annotation_by_label(
+        annotations, labels=labels)
+    video_id_to_original_resolution = annotation_stats.dataset[dataset][
+        'video_id_to_original_resolution']
+    # make track ID unique across different videos
+    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
+        annotations)
+    video_tile_to_uniq_track_id = collections.defaultdict(list)
+
+    for track_id, track_annotations in track_annotations_grp:
+        videoid = track_annotations.iloc[0]['videoid']
+        image_resolution = video_id_to_original_resolution[videoid]
+
+        for _, row in track_annotations.iterrows():
+            bbox = _clamp_bbox(image_resolution,
+                               (row['xmin'], row['ymin'], row['xmax'], row['ymax']))
+            tile_coords = _get_tile_coords_from_bbox(image_resolution, bbox,
+                                                     long_edge_ratio=0.5, short_edge_ratio=1)
+            for tile_coord in tile_coords:
+                tile_id = _combine_imageid(row['videoid'], row['frameid'], *tile_coord)
+                video_tile_to_uniq_track_id[tile_id].extend(track_id)
+
+    return video_tile_to_uniq_track_id
+
+
+def get_video_frame_to_uniq_track_id(base_dir, dataset):
+    load_annotation_func = annotation_stats.dataset[dataset][
+        'annotation_func']
+    labels = annotation_stats.dataset[dataset]['labels']
+    annotation_dir = os.path.join(base_dir, datasets[dataset][0])
+    annotations = load_annotation_func(annotation_dir)
+    test_video_ids = annotation_stats.dataset[dataset]['test']
+    annotations = annotations[annotations['videoid'].isin(test_video_ids)]
+    annotations = annotation.filter_annotation_by_label(
+        annotations, labels=labels)
+    # make track ID unique across different videos
+    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
+        annotations)
+    video_frame_to_uniq_track_id = collections.defaultdict(list)
+    for track_id, track_annotations in track_annotations_grp:
+        for _, row in track_annotations.iterrows():
+            video_id = row['videoid']
+            frame_id = row['frameid']
+            video_frame_to_uniq_track_id[(video_id, frame_id)].append(track_id)
+    all_unique_trakc_ids = set(track_annotations_grp.groups.keys())
+    print("Parsed annotations. Found {} unique track IDs in {}.".format(
+        len(all_unique_trakc_ids), ','.join(all_unique_trakc_ids)))
+    return all_unique_trakc_ids, video_frame_to_uniq_track_id
+

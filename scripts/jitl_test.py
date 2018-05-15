@@ -1,24 +1,15 @@
 import glob
-import pickle
 
 import fire
+import matplotlib
 import numpy as np
 import pandas as pd
 
-import matplotlib
-
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
-from sklearn.linear_model import SGDClassifier
-from sklearn.metrics import confusion_matrix, accuracy_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
 from sklearn.utils import resample
-import collections
-import os
-import annotation_stats
-import annotation
-from jitl_data import datasets
 from jitl_data import _split_imageid, _get_videoid
 
 
@@ -88,30 +79,6 @@ def max_pooling_on_dataset(jit_data_file,
         downsample_df.to_pickle(output_file)
 
 
-def get_video_frame_to_uniq_track_id(base_dir, dataset):
-    load_annotation_func = annotation_stats.dataset[dataset][
-        'annotation_func']
-    labels = annotation_stats.dataset[dataset]['labels']
-    annotation_dir = os.path.join(base_dir, datasets[dataset][0])
-    annotations = load_annotation_func(annotation_dir)
-    test_video_ids = annotation_stats.dataset[dataset]['test']
-    annotations = annotations[annotations['videoid'].isin(test_video_ids)]
-    annotations = annotation.filter_annotation_by_label(
-        annotations, labels=labels)
-    # make track ID unique across different videos
-    track_annotations_grp = annotation.group_annotation_by_unique_track_ids(
-        annotations)
-    video_frame_to_uniq_track_id = collections.defaultdict(list)
-    for track_id, track_annotations in track_annotations_grp:
-        for _, row in track_annotations.iterrows():
-            video_id = row['videoid']
-            frame_id = row['frameid']
-            video_frame_to_uniq_track_id[(video_id, frame_id)].append(track_id)
-    all_unique_trakc_ids = set(track_annotations_grp.groups.keys())
-    print("Parsed annotations. Found {} unique track IDs in {}.".format(
-        len(all_unique_trakc_ids), ','.join(all_unique_trakc_ids)))
-    return all_unique_trakc_ids, video_frame_to_uniq_track_id
-
 
 class StealPositiveFromVideoEnd(object):
     def __init__(self, df, video_id, tail=10):
@@ -136,6 +103,8 @@ def eval_jit_svm_on_dataset(jit_data_file,
                             delta_t=10,
                             activate_threshold=5,
                             svm_cutoff=0.3):
+    if not isinstance(svm_cutoff, list):
+        svm_cutoff = [svm_cutoff]
     dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
     df = pd.read_pickle(jit_data_file)
     print df.iloc[:5]
@@ -148,15 +117,16 @@ def eval_jit_svm_on_dataset(jit_data_file,
 
     for video_id in unique_videos:
         for dnn_cutoff in dnn_cutoff_list:
-            print("-" * 50)
-            print("Emulating video '{}' w/ DNN cutoff {}".format(video_id, dnn_cutoff))
-            print("-" * 50)
-            rv = run_once_jit_svm_on_video(df, video_id,
-                                           dnn_cutoff=dnn_cutoff,
-                                           delta_t=delta_t,
-                                           activate_threshold=activate_threshold,
-                                           svm_cutoff=svm_cutoff)
-            result_df = result_df.append(rv, ignore_index=True)
+            for svm_cut in svm_cutoff:
+                print("-" * 50)
+                print("Emulating video '{}' w/ DNN cutoff {}, SVM cutoff {}".format(video_id, dnn_cutoff, svm_cut))
+                print("-" * 50)
+                rv = run_once_jit_svm_on_video(df, video_id,
+                                               dnn_cutoff=dnn_cutoff,
+                                               delta_t=delta_t,
+                                               activate_threshold=activate_threshold,
+                                               svm_cutoff=svm_cut)
+                result_df = result_df.append(rv, ignore_index=True)
 
     print result_df
     if output_file:
@@ -277,7 +247,8 @@ def run_once_jit_svm_on_video(df_in, video_id, dnn_cutoff,
                                     'jitl_samples': y_jit.shape[0],
                                     'jitl_prediction': pred_jit,
                                     'label': y,
-                                    'video_id': video_id},
+                                    'video_id': video_id,
+                                    'svm_cutoff': svm_cutoff},
                                    ignore_index=True)
     print res_df
     return res_df
