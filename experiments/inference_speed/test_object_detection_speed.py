@@ -1,22 +1,13 @@
 import os
-import sys
 import tarfile
 import time
 
+import fire
 import numpy as np
 import six.moves.urllib as urllib
 import tensorflow as tf
-from PIL import Image
 
 tf.logging.set_verbosity(tf.logging.INFO)
-sys.path.append("..")
-
-
-def load_image_into_numpy_array(image):
-    (im_width, im_height) = image.size
-    return np.array(image.getdata()).reshape((im_height, im_width, 3)).astype(
-        np.uint8)
-
 
 models = {
     'ssd_mobilenet': 'ssd_mobilenet_v1_coco_2017_11_17',
@@ -27,6 +18,7 @@ models = {
 
 
 def load_graph(model_name):
+    assert model_name in models
     tf_model_name = models[model_name]
     model_file = tf_model_name + '.tar.gz'
     download_base_url = 'http://download.tensorflow.org/models/object_detection/'
@@ -56,8 +48,19 @@ def load_graph(model_name):
     return detection_graph
 
 
-def create_samples(num_sample_per_run, im_h, im_w):
-    return (np.random.randn(num_sample_per_run, im_h, im_w, 3) * 255).astype(np.uint8)
+def create_samples(model_name, num_sample_per_run):
+    # if model_name == "ssd_mobilenet":
+    #     # mobilenet is expecting [-1, 1]
+    #     return np.random.rand(num_sample_per_run, im_h, im_w, 3) * 2 - 1
+    # else:
+    #     # others expect [0, 1]
+    #     return np.random.rand(num_sample_per_run, im_h, im_w, 3)
+    # input size see: https://github.com/tensorflow/models/tree/master/research/object_detection/samples/configs
+    if "ssd" in model_name:
+        im_h, im_w = 300, 300
+    elif "faster" in model_name:
+        im_h, im_w = 600, 600
+    return (np.random.rand(num_sample_per_run, im_h, im_w, 3) * 255).astype(np.uint8)
 
 
 def get_io_tensors(detection_graph):
@@ -76,45 +79,44 @@ def get_io_tensors(detection_graph):
     return image_tensor, detection_boxes, detection_scores, detection_classes, num_detections
 
 
-def main(model_name, input_height=224, input_width=224, num_sample_per_run=100, num_run=3):
+def main(model_name, num_sample_per_run=100, num_run=3):
     detection_graph = load_graph(model_name)
     latencies = []
-    samples = create_samples(num_sample_per_run, input_height, input_width)
+
+    samples = create_samples(model_name, num_sample_per_run)
+
     # needed for jetson to be able to allocate enough memory
     # see https://devtalk.nvidia.com/default/topic/1029742/jetson-tx2/tensorflow-1-6-not-working-with-jetpack-3-2/1
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    with detection_graph.as_default():
-        with tf.Session(graph=detection_graph, config=config) as sess:
-            image_tensor, detection_boxes, detection_scores, detection_classes, num_detections = get_io_tensors(
-                detection_graph)
+    image_tensor, detection_boxes, detection_scores, detection_classes, num_detections = get_io_tensors(
+        detection_graph)
+    with tf.Session(graph=detection_graph, config=config) as sess:
+        for _ in range(num_run):
             # warm up
-            image_np = (np.random.rand(input_height, input_width, 3) * 255).astype(np.uint8)
+            image_np = samples[0]
             image_np_expanded = np.expand_dims(image_np, axis=0)
-            (boxes, scores, classes, num) = sess.run(
+            _ = sess.run(
                 [
-                    detection_boxes, detection_scores, detection_classes,
-                    num_detections
+                    detection_boxes, detection_classes
                 ],
                 feed_dict={
                     image_tensor: image_np_expanded
                 })
 
-            for _ in range(3):
-                for image in samples:
-                    # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-                    image_np_expanded = np.expand_dims(image, axis=0)
-                    # Actual detection.
-                    st = time.time()
-                    (boxes, scores, classes, num) = sess.run(
-                        [
-                            detection_boxes, detection_scores, detection_classes,
-                            num_detections
-                        ],
-                        feed_dict={
-                            image_tensor: image_np_expanded
-                        })
-                    latencies.append(time.time() - st)
+            for image_np in samples:
+                # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+                image_np_expanded = np.expand_dims(image_np, axis=0)
+                # Actual detection.
+                st = time.time()
+                _ = sess.run(
+                    [detection_boxes, detection_classes],
+                    feed_dict={
+                        image_tensor: image_np_expanded
+                    })
+                latency = time.time() - st
+                latencies.append(latency)
+                tf.logging.info(latency)
 
     tf.logging.info('average latency: {:.1f}ms, std: {:.1f}ms'.format(
         np.mean(latencies) * 1000, np.std(latencies) * 1000))
@@ -122,4 +124,4 @@ def main(model_name, input_height=224, input_width=224, num_sample_per_run=100, 
 
 
 if __name__ == '__main__':
-    main()
+    fire.Fire(main)

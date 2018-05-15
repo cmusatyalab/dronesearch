@@ -60,3 +60,10 @@ The android app needs to be placed inside the tensorflow src directories for suc
 ```
 3. Remember to use jetson_clocks.sh to start the fun when choosing the highest performance model.
 
+## Notes on Server
+1. Set the performance to be highest use:
+```bash
+sudo nvidia-smi -ac 3004,875
+```
+
+

@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 
-def create_samples(output_dir, num_sample_per_run=100, im_h=224, im_w=224):
+def create_samples(output_dir, num_sample_per_run=100, im_h=300, im_w=300):
     samples = (np.random.randn(num_sample_per_run, im_h, im_w, 3) * 255).astype(np.uint8)
     # save samples as jpeg images
     idx = 0
