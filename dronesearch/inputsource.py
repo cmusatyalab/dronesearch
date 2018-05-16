@@ -32,7 +32,8 @@ class OpenCVInputSource(InputSource):
 
     def open(self):
         self._cap = cv2.VideoCapture(self.source)
-        self._cap.set(cv2.cv.CV_CAP_PROP_CONVERT_RGB, True)
+        # Converts from RGB capture
+        self._cap.set(16, True)
 
     def read(self):
         ret, frame = self._cap.read()

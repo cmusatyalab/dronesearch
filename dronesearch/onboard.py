@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 """On board processing.
 
 Run filters on board and send them to backend
@@ -13,9 +13,11 @@ import ConfigParser
 import fire
 from logzero import logger
 
-from dronesearch import dronefilter
-import dronesearch.inputsource as inputsource
-import dronesearch.networkservice as networkservice
+import dronefilter
+import inputsource
+import networkservice
+
+import cv2
 
 
 def _get_config_parser(config_file):
@@ -93,14 +95,28 @@ def _start_event_loop(source, current_filter, filters, network_service):
     source.open()
     current_filter.open()
     network_service.open()
+    
     while True:
-        im = source.read()
-        if im is None:
-            logger.info('No image retrieved. exiting.')
+        try:
+            im = source.read()
+
+            cv2.imshow('Drone Feed', im)
+            cv2.waitKey(1)
+
+            if im is None:
+                logger.info('No image retrieved. exiting.')
+                break
+            else:
+                # TODO: Add in ZMQ image transfer here
+                filter_output = current_filter.process(im)
+                if filter_output is not None:
+                    logger.info('Detection made, image sent')
+                    network_service.send(filter_output.tobytes())
+                else:
+                    logger.info('No detection made')
+        except KeyboardInterrupt:
             break
-        else:
-            filter_output = current_filter.process(im)
-            network_service.send(filter_output.tobytes())
+    
     source.close()
     current_filter.close()
     network_service.close()

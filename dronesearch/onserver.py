@@ -13,9 +13,11 @@ import ConfigParser
 import fire
 from logzero import logger
 
-from dronesearch import dronefilter
-import dronesearch.networkservice as networkservice
+import dronefilter
+import networkservice
 
+""" For testing purposes only """
+import cv2
 
 def _start_event_loop(network_service):
     """Start pipeline of receiving results from onboard
@@ -30,12 +32,19 @@ def _start_event_loop(network_service):
 
     """
     network_service.open()
-    filter_output = dronefilter.TileFilterOutput()
+    filter_output = dronefilter.ImageFilterOutput()
+    
     while True:
-        filter_output_serialized = network_service.socket.recv()
-        filter_output.frombytes(filter_output_serialized)
-        logger.info('received images in tiles: {}'.format(
-            filter_output.indices))
+        try:
+            filter_output_serialized = network_service.socket.recv()
+            filter_output.frombytes(filter_output_serialized)
+            
+            logger.info('received image')
+            
+            cv2.imshow('Received Image Feed', filter_output.image)
+            cv2.waitKey(1)
+        except KeyboardInterrupt:
+            break
 
 
 def start_onserver_processing(network_service='zmq_pair', server_port=9000):
