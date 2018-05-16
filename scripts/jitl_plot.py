@@ -58,7 +58,7 @@ def frames_vs_event_recall(base_dir,
     fig, ax1 = plt.subplots()
     # plt.gca().invert_xaxis()
     ax1.set_xlabel("Event Recall")
-    ax1.set_ylabel("Fraction of Frames")
+    ax1.set_ylabel("Frame Fraction")
 
     df_dnn = df[['dnn_event_recall', 'dnn_fired_frames', 'total_test_frames']]
     df_dnn = df_dnn.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
@@ -97,8 +97,10 @@ def frames_vs_event_recall(base_dir,
         df1 = df1.sort_values(by=['random_drop_event_recall'])
         ax1.plot(df1['random_drop_event_recall'], df1['random_drop_fired_frames'] + 1, 'go-', label='Random Drop')
 
-    ax1.set_ylim(0, 1.1)
-    ax1.set_xlim(0.0, 1.1)
+    ax1.set_ylim(0.0, 1.05)
+    ax1.set_xlim(0.0, 1.05)
+    ax1.set_xticks(np.arange(0, 1.05, 0.2))
+    ax1.set_yticks(np.arange(0, 1.05, 0.2))
     # ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 
     # plt.legend(loc='lower right', **LEGEND_FONTS)

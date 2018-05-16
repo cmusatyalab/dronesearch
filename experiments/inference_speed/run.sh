@@ -24,12 +24,12 @@ fi
 printf "========================Running Detection Test=====================\n"
 models=(
     'ssd_mobilenet'
-    'ssd_inceptionv2'
-    'faster_rcnn_inceptionv2'
-    'faster_rcnn_resnet101'
+#    'ssd_inceptionv2'
+#    'faster_rcnn_inceptionv2'
+#    'faster_rcnn_resnet101'
 )
 for model_name in ${models[@]};do
     printf "launching detection test for ${model_name}"
-    python test_object_detection_speed.py ${model_name} 2>&1 | tee results/tf_${model_name}_${device}_no_preprocessing
-    .txt
+    python test_object_detection_speed.py ${model_name} 2>&1 | tee \
+    results/tf_${model_name}_${device}_no_preprocessing_cpu.txt
 done
