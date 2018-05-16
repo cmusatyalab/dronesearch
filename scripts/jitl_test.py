@@ -5,7 +5,6 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
-matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC

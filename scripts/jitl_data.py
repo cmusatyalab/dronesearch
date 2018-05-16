@@ -12,7 +12,6 @@ from StringIO import StringIO
 
 import matplotlib
 
-matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import PIL.Image
 

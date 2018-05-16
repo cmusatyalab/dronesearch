@@ -2,12 +2,13 @@ import collections
 import itertools
 
 import fire
-import matplotlib
 import numpy as np
 import os
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
 from sklearn.utils import resample
+
+import matplotlib as mpl
+mpl.use("pgf")
 
 import annotation
 import annotation_stats
@@ -15,14 +16,18 @@ from jitl_data import _split_imageid
 from jitl_data import datasets, _combine_imageid
 from result_analysis import _clamp_bbox, _get_tile_coords_from_bbox
 
-matplotlib.use('Agg')
+pgf_with_rc_fonts = {
+    "font.family": "serif",
+    "font.serif": [],  # use latex default serif font
+    "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
+    "font.size": 26
+}
+mpl.rcParams.update(pgf_with_rc_fonts)
 from matplotlib import pyplot as plt
 
-# matplotlib.rcParams.update({'font.size': 16})
-
-LABEL_FONTS = dict(fontsize=22)
-LEGEND_FONTS = LABEL_FONTS
-TICKS_FONTS = dict(fontsize=20)
+# LABEL_FONTS = dict(fontsize=22)
+# LEGEND_FONTS = LABEL_FONTS
+# TICKS_FONTS = dict(fontsize=20)
 
 
 def frames_vs_event_recall(base_dir,
@@ -52,8 +57,8 @@ def frames_vs_event_recall(base_dir,
 
     fig, ax1 = plt.subplots()
     # plt.gca().invert_xaxis()
-    ax1.set_xlabel("Event Recall", **LABEL_FONTS)
-    ax1.set_ylabel("Fraction of Frames", **LABEL_FONTS)
+    ax1.set_xlabel("Event Recall")
+    ax1.set_ylabel("Fraction of Frames")
 
     df_dnn = df[['dnn_event_recall', 'dnn_fired_frames', 'total_test_frames']]
     df_dnn = df_dnn.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
@@ -97,14 +102,12 @@ def frames_vs_event_recall(base_dir,
     # ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 
     # plt.legend(loc='lower right', **LEGEND_FONTS)
-    plt.xticks(**TICKS_FONTS)
-    plt.yticks(**TICKS_FONTS)
     # ax1.get_xaxis().set_major_locator(MaxNLocator(4))
 
     plt.tight_layout()
     if savefig:
         print("Saving figure to {}".format(savefig))
-        plt.savefig(savefig)
+        plt.savefig(savefig, bbox_inches='tight')
 
     # plt.show()
 
