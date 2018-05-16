@@ -5,6 +5,7 @@ These are the experiments and scripts for mobisys'18
 # What's in the directory
   * dataset: downloaded dataset without any modifications
   * processed_dataset: preprocessed datasets for experiments and experiments results
+      * In their experiment, test_inference has all the early discard prediction results and 1024 feature vectors; test_inference_proba only has the prediction results
   * scripts: scripts used to do preprocess and launch experiments
   * environment: environment and packages for running the experiment. tf1.3-gpu-env is the virtualenv for tensorflow
   * pretrained_models: downloaded pretrained models without any modifications

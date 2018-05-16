@@ -2,12 +2,13 @@ import collections
 import itertools
 
 import fire
-import matplotlib
 import numpy as np
 import os
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
 from sklearn.utils import resample
+
+import matplotlib as mpl
+mpl.use("pgf")
 
 import annotation
 import annotation_stats
@@ -15,14 +16,18 @@ from jitl_data import _split_imageid
 from jitl_data import datasets, _combine_imageid
 from result_analysis import _clamp_bbox, _get_tile_coords_from_bbox
 
-matplotlib.use('Agg')
+pgf_with_rc_fonts = {
+    "font.family": "serif",
+    "font.serif": [],  # use latex default serif font
+    "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
+    "font.size": 26
+}
+mpl.rcParams.update(pgf_with_rc_fonts)
 from matplotlib import pyplot as plt
 
-# matplotlib.rcParams.update({'font.size': 16})
-
-LABEL_FONTS = dict(fontsize=22)
-LEGEND_FONTS = LABEL_FONTS
-TICKS_FONTS = dict(fontsize=20)
+# LABEL_FONTS = dict(fontsize=22)
+# LEGEND_FONTS = LABEL_FONTS
+# TICKS_FONTS = dict(fontsize=20)
 
 
 def frames_vs_event_recall(base_dir,
@@ -52,8 +57,8 @@ def frames_vs_event_recall(base_dir,
 
     fig, ax1 = plt.subplots()
     # plt.gca().invert_xaxis()
-    ax1.set_xlabel("Event Recall", **LABEL_FONTS)
-    ax1.set_ylabel("Frame Fraction", **LABEL_FONTS)
+    ax1.set_xlabel("Event Recall")
+    ax1.set_ylabel("Frame Fraction")
 
     df_dnn = df[['dnn_event_recall', 'dnn_fired_frames', 'total_test_frames']]
     df_dnn = df_dnn.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
@@ -74,8 +79,14 @@ def frames_vs_event_recall(base_dir,
     df_dnn = df_dnn[df_dnn['dnn_event_recall'].isin(shared_recalls)]
     df_jitl = df_jitl[df_jitl['jitl_event_recall'].isin(shared_recalls)]
 
-    ax1.plot(df_dnn['dnn_event_recall'], df_dnn['dnn_fired_frames_percent'], 'b-', label='DNN')
-    ax1.plot(df_jitl['jitl_event_recall'], df_jitl['jitl_fired_frames_percent']-0.0001, 'r-', label='JITL')  # noisify overlap
+    # previous code to plot frames percent separately
+    # ax1.plot(df_dnn['dnn_event_recall'], df_dnn['dnn_fired_frames_percent'], 'b-', label='DNN')
+    # ax1.plot(df_jitl['jitl_event_recall'], df_jitl['jitl_fired_frames_percent']-0.0001, 'r-', label='JITL')  # noisify overlap
+
+    jitl_dnn_percent = df_jitl['jitl_fired_frames_percent']/df_dnn['dnn_fired_frames_percent']
+    jitl_dnn_percent = jitl_dnn_percent.clip(upper=1.0)
+    ax1.plot(df_jitl['jitl_event_recall'], jitl_dnn_percent, 'rs')
+    ax1.plot(df_jitl['jitl_event_recall'], jitl_dnn_percent, 'r-')
 
     if random_drop:
         df1 = df[['random_drop_event_recall', 'random_drop_fired_frames']]
@@ -86,18 +97,19 @@ def frames_vs_event_recall(base_dir,
         df1 = df1.sort_values(by=['random_drop_event_recall'])
         ax1.plot(df1['random_drop_event_recall'], df1['random_drop_fired_frames'] + 1, 'go-', label='Random Drop')
 
-    ax1.set_ylim(bottom=0)
+    ax1.set_ylim(0.0, 1.05)
+    ax1.set_xlim(0.0, 1.05)
+    ax1.set_xticks(np.arange(0, 1.05, 0.2))
+    ax1.set_yticks(np.arange(0, 1.05, 0.2))
     # ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 
-    plt.legend(loc='lower right', **LEGEND_FONTS)
-    plt.xticks(**TICKS_FONTS)
-    plt.yticks(**TICKS_FONTS)
-    ax1.get_xaxis().set_major_locator(MaxNLocator(4))
+    # plt.legend(loc='lower right', **LEGEND_FONTS)
+    # ax1.get_xaxis().set_major_locator(MaxNLocator(4))
 
     plt.tight_layout()
     if savefig:
         print("Saving figure to {}".format(savefig))
-        plt.savefig(savefig)
+        plt.savefig(savefig, bbox_inches='tight')
 
     # plt.show()
 
@@ -113,6 +125,11 @@ def _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, ran
         for imageids, prediction in zip(results['imageids'], results['jitl_prediction']):
             jitl_fired_imageids.extend([imageids[ind] for ind in np.nonzero(prediction)[0]])
         dnn_fired_imageids = list(itertools.chain.from_iterable(results['imageids']))
+
+        # dedup
+        jitl_fired_imageids = sorted(list(set(jitl_fired_imageids)))
+        dnn_fired_imageids = sorted(list(set(dnn_fired_imageids)))
+
         # jitl_fired_imageids = list(itertools.chain.from_iterable(results['jitl_fired_imageids']))
         assert len(jitl_fired_imageids) <= len(dnn_fired_imageids)
 

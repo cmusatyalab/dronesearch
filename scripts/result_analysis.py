@@ -1172,6 +1172,59 @@ def random_select_and_filter_results(dataset_name, sample_interval):
     return interval_sampling_prediction_dict
 
 
+def all_peak_bw():
+    fps = 30
+    sample_interval = 30
+    for dataset_name, (annotation_dir, tile_annotation_dir,
+                       result_dir) in datasets.iteritems():
+        max_fired_num = get_peak_bw(
+            dataset_name, sample_interval=sample_interval)
+        logger.info('{} peak # of tiles per second: {}'.format(
+            dataset_name, max_fired_num / (sample_interval / fps)))
+
+
+def get_all_test_tile_id_by_frame_iter(dataset_name):
+    test_data_iter = get_test_dataset_video_iter(dataset_name)
+    for (test_dataset_name, video_id) in test_data_iter:
+        video_id_to_frame_num = annotation_stats.dataset[test_dataset_name][
+            'video_id_to_frame_num']
+        frame_num = video_id_to_frame_num[video_id]
+        (grid_w, grid_h) = _get_grid_shape(test_dataset_name, video_id)
+
+        for frame_id in range(1, frame_num + 1):
+            tile_coords_iter = _get_tile_coords_iter(grid_w, grid_h)
+            for tile_coord in tile_coords_iter:
+                tile_id = get_prediction_id(test_dataset_name, video_id,
+                                            frame_id, *tile_coord)
+                yield tile_id
+
+
+def get_peak_bw(dataset_name, sample_interval=30, threshold=0.5):
+    result_dir = datasets[dataset_name][2]
+    predictions = io_util.load_all_pickles_from_dir(result_dir)
+    test_tile_id_by_frame_iter = get_all_test_tile_id_by_frame_iter(
+        dataset_name)
+    max_fired_num = 0
+    tile_num_per_frame = 2
+    for tile_ids in grouper(
+            sample_interval * tile_num_per_frame, test_tile_id_by_frame_iter):
+        # tile_ids_list = []
+        # for tile_id_pair in tile_ids:
+        #     if tile_id_pair is not None:
+        #         tile_ids_list.extend([
+        #             tile_id for tile_id in tile_id_pair
+        #         ])
+        # print(tile_ids_list)
+        prediction_probas = [
+            predictions[tile_id][1] for tile_id in tile_ids
+            if tile_id is not None
+        ]
+        interval_fired_num = (np.array(prediction_probas) > threshold).sum()
+        if interval_fired_num > max_fired_num:
+            max_fired_num = interval_fired_num
+    return max_fired_num
+
+
 def get_event_recall(dataset_name,
                      predictions,
                      threshold_list=[0.5],

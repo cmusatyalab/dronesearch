@@ -279,8 +279,8 @@ raft_video_id_to_frame_num = {
     "11": 2648
 }
 
-raft_train_videos = sorted(elephant_video_id_to_original_resolution.keys())[:8]
-raft_test_videos = sorted(elephant_video_id_to_original_resolution.keys())[8:]
+raft_train_videos = sorted(raft_video_id_to_original_resolution.keys())[:8]
+raft_test_videos = sorted(raft_video_id_to_original_resolution.keys())[8:]
 dataset = {
     "elephant": {
         'annotation_func':

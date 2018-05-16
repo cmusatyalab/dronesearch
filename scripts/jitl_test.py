@@ -5,7 +5,6 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
-matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from sklearn.metrics import accuracy_score
 from sklearn.svm import SVC
@@ -97,15 +96,25 @@ class StealPositiveFromVideoEnd(object):
 
 def eval_jit_svm_on_dataset(jit_data_file,
                             output_file,
-                            dnn_cutoff_start=80,
+                            dnn_threshold_input_file=None,
+                            dnn_cutoff_start=80, # dnn threshold for passing early discard filter
                             dnn_cutoff_end=100,
                             dnn_cutoff_step=2,
-                            delta_t=10,
-                            activate_threshold=5,
+                            delta_t=10, # train every 10s
+                            activate_threshold=5, # min number of examples per class needed to train the SVM,
+                            # otherwise passthrough; training set is ever expanding;
                             svm_cutoff=0.3):
     if not isinstance(svm_cutoff, list):
         svm_cutoff = [svm_cutoff]
-    dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
+    if dnn_threshold_input_file is not None:
+        print("Warning: Dnn_threshold_input_file is specified! Ignoring dnn_cutoff_start, dnn_cutoff_end, "
+              "dnn_cutoff_step variable.")
+        dnn_cutoff_list = np.load(dnn_threshold_input_file)
+        dnn_cutoff_list.sort()
+        print("loaded dnn cutoff threshold is: {}".format(dnn_cutoff_list))
+    else:
+        dnn_cutoff_list = [0.01 * x for x in range(dnn_cutoff_start, dnn_cutoff_end, dnn_cutoff_step)]
+        print("Generated dnn cutoff list: {}".format(dnn_cutoff_list))
     df = pd.read_pickle(jit_data_file)
     print df.iloc[:5]
     df['videoid'] = df['imageid'].map(lambda x: _get_videoid(x))
