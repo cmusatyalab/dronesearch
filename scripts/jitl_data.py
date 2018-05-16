@@ -229,5 +229,23 @@ def _parse_tile_annotation_and_inference_pre_logit(dataset,
     return df
 
 
+def make_jitl_dnn_threshold(early_discard_plotted_threshold_and_recall_file, dataset, output_file):
+    """
+    Get DNN thresholds that event recall changes
+    :param early_discard_plotted_threshold_and_recall_file: The DNN threshold vs event recall pkl file that contains
+    the points used in the early discard plot
+    :param dataset: dataset name
+    :param output_file: Outputfile that contains a numpy array of DNN threshold in increasing order
+    :return:
+    """
+    plotted_data = np.load(early_discard_plotted_threshold_and_recall_file)
+    assert dataset in plotted_data, "Dataset name {} is not in the plotted threshold vs recall data file"
+    interesting_dnn_threshold = np.array(plotted_data[dataset][0])
+    interesting_dnn_threshold.sort()
+    with open(output_file, 'wb') as f:
+        np.save(f, interesting_dnn_threshold)
+    print("interesting DNN threshold for {}:\n{}".format(dataset, interesting_dnn_threshold))
+
+
 if __name__ == '__main__':
     fire.Fire()
