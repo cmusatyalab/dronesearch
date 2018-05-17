@@ -107,7 +107,6 @@ def auc(predictions_dir, annotation_dir):
                                               predictions.item().get('detection_scores')[frame_id]
                                               )
     metrics = pascal_evaluator.evaluate()
-    import pdb; pdb.set_trace()
     logger.info('AP for Person @ 0.5IOU is {}'.format(metrics['PascalBoxes_PerformanceByCategory/AP@0.5IOU/Person']))
     pascal_evaluator.clear()
 

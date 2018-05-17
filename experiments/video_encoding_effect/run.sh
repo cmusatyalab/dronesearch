@@ -51,7 +51,6 @@ function extract {
     done
 }
 
-function inference {
 declare -A work
 work=(
 ["26"]="17"
@@ -60,6 +59,8 @@ work=(
 ["29"]="35"
 ["30"]="41"
 )
+
+function inference {
 mid="$(hostname | tail -c 3)"
 echo {$mid}
 work_crf=${work[${mid}]}
@@ -73,6 +74,18 @@ python okutama_inference.py infer --frozen-graph-path \
 --output-dir results/crf/${work_crf}
 }
 
+
+function auc {
+mid="$(hostname | tail -c 3)"
+echo {$mid}
+work_crf=${work[${mid}]}
+echo "working on crf ${work_crf}"
+python okutama_inference.py auc \
+--predictions-dir results/crf/${work_crf} \
+--annotation-dir /home/junjuew/mobisys18/processed_dataset/okutama/annotations 2>&1 | tee \
+results/crf/${work_crf}/auc.txt
+}
+
 #work_crf="47"
 #echo "working on crf ${work_crf}"
 #mkdir -p results/crf/${work_crf}
@@ -83,4 +96,4 @@ python okutama_inference.py infer --frozen-graph-path \
 #/home/junjuew/mobisys18/processed_dataset/okutama/crf_images/${work_crf} \
 #--output-dir results/crf/${work_crf}
 
-inference
+auc
