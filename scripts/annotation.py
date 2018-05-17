@@ -1079,6 +1079,7 @@ def get_track_iter(annotations):
 def load_and_filter_dataset_test_annotation(dataset_name, annotation_dir):
     labels = annotation_stats.dataset[dataset_name]['labels']
     video_ids = annotation_stats.dataset[dataset_name]['test']
+
     func_load_annotation_dir = annotation_stats.dataset[dataset_name][
         'annotation_func']
     annotations = func_load_annotation_dir(annotation_dir)

@@ -220,3 +220,7 @@ python infer_tile_classifier.py --checkpoint_path=/home/junjuew/mobisys18/proces
 ### JITL
 augment_postive is False now , so that we could add synthetic data.
 if not np.count_nonzero(y_jit == 1) >= activate_threshold and augment_positive:
+
+
+## Software Artifact
+Compiled Joule/Aero Drone Tensorflow Wheel with SSE2 is [here](https://drive.google.com/file/d/1WPkQ52OGUrfSsk7bq7y2kImvAzPnyxnX/view?usp=sharing)
