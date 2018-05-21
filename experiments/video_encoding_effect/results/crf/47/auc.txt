@@ -1,0 +1,6 @@
+[D 180517 09:23:41 okutama_inference:95] calculating auc
+[D 180517 09:23:41 okutama_inference:97] 2.2.2
+[D 180517 09:23:45 okutama_inference:97] 2.2.4
+[D 180517 09:23:51 okutama_inference:97] 1.1.7
+[I 180517 09:24:00 okutama_inference:110] AP for Person @ 0.5IOU is 0.376763200178
+find cache file at: /home/junjuew/mobisys18/processed_dataset/okutama/annotations/cache.pkl. Using cached annotations

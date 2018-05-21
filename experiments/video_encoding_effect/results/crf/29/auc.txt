@@ -1,0 +1,8 @@
+[D 180517 13:23:12 okutama_inference:95] calculating auc
+[D 180517 13:23:12 okutama_inference:97] 2.2.2
+okutama_inference.py:54: FutureWarning: Method .as_matrix will be removed in a future version. Use .values instead.
+  groundtruth_boxes = image_annotations[['ymin', 'xmin', 'ymax', 'xmax']].as_matrix().astype(np.float)
+[D 180517 13:23:17 okutama_inference:97] 2.2.4
+[D 180517 13:23:24 okutama_inference:97] 1.1.7
+[I 180517 13:23:34 okutama_inference:110] AP for Person @ 0.5IOU is 0.471348394936
+find cache file at: /home/junjuew/mobisys18/processed_dataset/okutama/annotations/cache.pkl. Using cached annotations

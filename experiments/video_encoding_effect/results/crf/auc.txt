@@ -1,0 +1,6 @@
+[D 180517 13:09:32 okutama_inference:95] calculating auc
+[D 180517 13:09:32 okutama_inference:97] 2.2.2
+okutama_inference.py:54: FutureWarning: Method .as_matrix will be removed in a future version. Use .values instead.
+  groundtruth_boxes = image_annotations[['ymin', 'xmin', 'ymax', 'xmax']].as_matrix().astype(np.float)
+[D 180517 13:09:38 okutama_inference:97] 2.2.4
+[D 180517 13:09:45 okutama_inference:97] 1.1.7
