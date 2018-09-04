@@ -9,6 +9,13 @@ from sklearn.utils import resample
 
 import matplotlib as mpl
 mpl.use("pgf")
+pgf_with_rc_fonts = {
+    "font.family": "serif",
+    "font.serif": [],  # use latex default serif font
+    "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
+    "font.size": 30
+}
+mpl.rcParams.update(pgf_with_rc_fonts)
 
 import annotation
 import annotation_stats
@@ -16,19 +23,7 @@ from jitl_data import _split_imageid
 from jitl_data import datasets, _combine_imageid
 from result_analysis import _clamp_bbox, _get_tile_coords_from_bbox
 
-pgf_with_rc_fonts = {
-    "font.family": "serif",
-    "font.serif": [],  # use latex default serif font
-    "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
-    "font.size": 26
-}
-mpl.rcParams.update(pgf_with_rc_fonts)
 from matplotlib import pyplot as plt
-
-# LABEL_FONTS = dict(fontsize=22)
-# LEGEND_FONTS = LABEL_FONTS
-# TICKS_FONTS = dict(fontsize=20)
-
 
 def frames_vs_event_recall(base_dir,
                            dataset,
@@ -36,29 +31,28 @@ def frames_vs_event_recall(base_dir,
                            random_drop=False,
                            savefig=None):
     assert dataset in annotation_stats.dataset.keys()
+    cache_file = os.path.join('..', 'experiments', 'jitl_added_0_to_threshold', dataset, 'fig-jitl-{}-eventrecall.pdf-frames_vs_event_recall-False.cache'.format(dataset))
+    df = pd.read_pickle(cache_file)
 
-    cache_file = None
-    if savefig:
-        cache_file = savefig + '-frames_vs_event_recall-{}.cache'.format(random_drop)
+    # generate and save experiment data if cache file does not exists
+    # if savefig:
+    #     cache_file = savefig + '-frames_vs_event_recall-{}.cache'.format(random_drop)
 
-    if cache_file and os.path.exists(cache_file) \
-            and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file):
-        print("Plot loading cache {}".format(cache_file))
-        df = pd.read_pickle(cache_file)
+    # if cache_file and os.path.exists(cache_file) \
+    #         and os.path.getmtime(cache_file) > os.path.getmtime(jitl_result_file):
+    #     print("Plot loading cache {}".format(cache_file))
+    #     df = pd.read_pickle(cache_file)
 
-    else:
-        df = _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, random_drop)
-        if cache_file:
-            print("Plot writing cache {}".format(cache_file))
-            df.to_pickle(cache_file)
-
+    # else:
+    #     df = _calc_cutoff_recall_frame_dataframe(base_dir, dataset, jitl_result_file, random_drop)
+    #     if cache_file:
+    #         print("Plot writing cache {}".format(cache_file))
+    #         df.to_pickle(cache_file)
+    
     print("Will be plotting from ...")
     print(df)
 
     fig, ax1 = plt.subplots()
-    # plt.gca().invert_xaxis()
-    ax1.set_xlabel("Event Recall")
-    ax1.set_ylabel("Frame Fraction")
 
     df_dnn = df[['dnn_event_recall', 'dnn_fired_frames', 'total_test_frames']]
     df_dnn = df_dnn.groupby(['dnn_event_recall']).aggregate(min)  # crunch duplicated recall values
@@ -75,33 +69,165 @@ def frames_vs_event_recall(base_dir,
     print(df_dnn)
     print(df_jitl)
 
-    shared_recalls = set(df_dnn['dnn_event_recall'].tolist()).intersection(df_jitl['jitl_event_recall'].tolist())
-    df_dnn = df_dnn[df_dnn['dnn_event_recall'].isin(shared_recalls)]
-    df_jitl = df_jitl[df_jitl['jitl_event_recall'].isin(shared_recalls)]
-
-    # previous code to plot frames percent separately
+    # previous code to plot frames percent separately using a line graph
+    # top_num = 3
+    # shared_recalls = set(df_dnn['dnn_event_recall'].tolist()).intersection(df_jitl['jitl_event_recall'].tolist())
+    # shared_recalls = sorted(list(shared_recalls), reverse=True)[:top_num]
+    # df_dnn = df_dnn[df_dnn['dnn_event_recall'].isin(shared_recalls)]
+    # df_jitl = df_jitl[df_jitl['jitl_event_recall'].isin(shared_recalls)]
+    # print(df_dnn)
+    # print(df_jitl)
     # ax1.plot(df_dnn['dnn_event_recall'], df_dnn['dnn_fired_frames_percent'], 'b-', label='DNN')
-    # ax1.plot(df_jitl['jitl_event_recall'], df_jitl['jitl_fired_frames_percent']-0.0001, 'r-', label='JITL')  # noisify overlap
+    # ax1.plot(df_jitl['jitl_event_recall'], df_jitl['jitl_fired_frames_percent'], 'r-', label='JITL')  # overlap
 
-    jitl_dnn_percent = df_jitl['jitl_fired_frames_percent']/df_dnn['dnn_fired_frames_percent']
-    jitl_dnn_percent = jitl_dnn_percent.clip(upper=1.0)
-    ax1.plot(df_jitl['jitl_event_recall'], jitl_dnn_percent, 'rs')
-    ax1.plot(df_jitl['jitl_event_recall'], jitl_dnn_percent, 'r-')
+    step_graph = True
+    bar_graph = False
+    dnn_color= [
+        # '#a8ddb5',
+        # '#7bccc4',
+        # '#43a2ca',
+        # '#0868ac',
+        '#9ecae1',
+        '#6baed6',
+        '#3182bd',
+        '#08519c',
+    ]
+    jitl_color = [
+        # '#fec44f',
+        # '#fe9929',
+        # '#d95f0e',
+        # '#993404',
+        '#fdae6b',
+        '#fd8d3c',
+        '#e6550d',
+        '#a63603',
+        # '#a1d99b',
+        # '#74c476',
+        # '#31a354',
+        # '#006d2c',
+    ]
 
-    if random_drop:
-        df1 = df[['random_drop_event_recall', 'random_drop_fired_frames']]
-        df1 = df1.groupby(['random_drop_event_recall']).aggregate(min)  # crunch duplicated recall values
-        print("Random drop result:")
-        print(df1)
-        df1['random_drop_event_recall'] = df1.index
-        df1 = df1.sort_values(by=['random_drop_event_recall'])
-        ax1.plot(df1['random_drop_event_recall'], df1['random_drop_fired_frames'] + 1, 'go-', label='Random Drop')
+    if step_graph:
+        # used in camera-ready paper
+        top_num = 3
+        df_jitl = df_jitl.dropna()
+        earlydiscard_event_recalls = sorted(df_dnn['dnn_event_recall'].tolist(), reverse=True)[:top_num][::-1]
+        jitl_event_recalls = sorted(df_jitl['jitl_event_recall'].tolist(), reverse=True)[:top_num][::-1]
+        df_dnn = df_dnn[df_dnn['dnn_event_recall'].isin(earlydiscard_event_recalls)]
+        df_jitl = df_jitl[df_jitl['jitl_event_recall'].isin(jitl_event_recalls)]
+        earlydiscard_event_recalls.insert(0, 0.0)
+        earlydiscard_frame_fraction = df_dnn['dnn_fired_frames_percent'].tolist()
+        earlydiscard_frame_fraction.insert(0, earlydiscard_frame_fraction[0])
 
-    ax1.set_ylim(0.0, 1.05)
-    ax1.set_xlim(0.0, 1.05)
-    ax1.set_xticks(np.arange(0, 1.05, 0.2))
-    ax1.set_yticks(np.arange(0, 1.05, 0.2))
-    # ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
+        jitl_event_recalls.insert(0, 0.0)
+        jitl_frame_fraction = df_jitl['jitl_fired_frames_percent'].tolist()
+        jitl_frame_fraction.insert(0, jitl_frame_fraction[0])
+        ax1.step(earlydiscard_event_recalls, earlydiscard_frame_fraction, color=dnn_color[int(top_num/2)], label='EarlyDiscard')
+        ax1.step(jitl_event_recalls, jitl_frame_fraction, color=jitl_color[int(top_num/2)], label='JITL')
+        ax1.set_xlabel("Event Recall")
+        ax1.set_ylabel("Frame Fraction")
+        ax1.set_xlim(min(earlydiscard_event_recalls[1], jitl_event_recalls[1]) - 0.1, 1)
+        ax1.set_ylim(0, max(earlydiscard_frame_fraction[-1], jitl_frame_fraction[-1]) * 1.5)
+
+        ax1.fill_between(earlydiscard_event_recalls, [1.0]*len(earlydiscard_event_recalls), earlydiscard_frame_fraction, step='pre', color=dnn_color[int(top_num/2)], alpha=0.5)
+        from scipy.interpolate import interp1d
+        earlydiscard_interpol = interp1d(earlydiscard_event_recalls, earlydiscard_frame_fraction, kind='previous')
+        if (earlydiscard_event_recalls[-1] > jitl_event_recalls[-1]):
+            jitl_interpol = interp1d(jitl_event_recalls + [1.0], jitl_frame_fraction + [earlydiscard_frame_fraction[-1]], kind='previous')
+        else:
+            jitl_interpol = interp1d(jitl_event_recalls, jitl_frame_fraction, kind='previous')
+        region_x = sorted(earlydiscard_event_recalls + jitl_event_recalls)
+        ax1.fill_between(region_x, earlydiscard_interpol(region_x), jitl_interpol(region_x), step='pre', color=jitl_color[int(top_num/2)], alpha=0.5)
+        from matplotlib.ticker import MaxNLocator
+        ax1.yaxis.set_major_locator(MaxNLocator(4))
+        ax1.xaxis.set_major_locator(MaxNLocator(4))
+
+        # import matplotlib.patches as mpatches
+        # fig = plt.figure(figsize=(5, 2))
+        # labels = ['EarlyDiscard', 'JITL']
+        # patches = [
+        #     mpatches.Patch(color=color, label=label)
+        #     for label, color in zip(labels, [dnn_color[int(top_num/2)], jitl_color[int(top_num/2)]])]
+        # fig.legend(patches, labels, loc='center', ncol=2)
+        # fig.savefig(
+        #     'fig-jitl-legend.pdf', bbox_inches='tight')
+    elif bar_graph:
+        # bar graph
+        bar_width = 0.3
+        opacity = 0.8
+        index = np.arange(top_num)
+        dnn_color= [
+            # '#a8ddb5',
+            # '#7bccc4',
+            # '#43a2ca',
+            # '#0868ac',
+            '#9ecae1',
+            '#6baed6',
+            '#3182bd',
+            '#08519c',
+        ]
+        jitl_color = [
+            # '#fec44f',
+            # '#fe9929',
+            # '#d95f0e',
+            # '#993404',
+            '#fdae6b',
+            '#fd8d3c',
+            '#e6550d',
+            '#a63603',
+            # '#a1d99b',
+            # '#74c476',
+            # '#31a354',
+            # '#006d2c',
+        ]
+
+        rects1 = ax1.bar(index, df_dnn['dnn_fired_frames_percent'], bar_width,
+                        alpha=opacity,
+                        color=dnn_color[:top_num],
+                        label='EarlyDiscard')
+        rects2 = ax1.bar(index + bar_width, df_jitl['jitl_fired_frames_percent'], bar_width,
+                        alpha=opacity,
+                        color=jitl_color[:top_num],
+                        label='JITL')
+        ax1.set_xticks(index + bar_width / 2)
+        ax1.set_xticklabels(reversed(map(lambda x: str(round(x, 2)), shared_recalls)))
+        ax1.set_xlabel("Event Recall")
+        ax1.set_ylabel("Frame Fraction")
+        from matplotlib.ticker import MaxNLocator
+        ax1.yaxis.set_major_locator(MaxNLocator(3))
+        
+        # generate legend
+        # import matplotlib.patches as mpatches
+        # fig = plt.figure(figsize=(5, 2))
+        # labels = ['EarlyDiscard', 'EarlyDiscard + JITL']
+        # patches = [
+        #     mpatches.Patch(color=color, label=label)
+        #     for label, color in zip(labels, [dnn_color[int(top_num/2)], jitl_color[int(top_num/2)]])]
+        # fig.legend(patches, labels, loc='center', ncol=2)
+        # fig.savefig(
+        #     'fig-jitl-legend.pdf', bbox_inches='tight')
+    else:
+        ax1.set_xlabel("Event Recall")
+        ax1.set_ylabel("Frame Fraction")
+        # jitl_dnn_percent = df_jitl['jitl_fired_frames_percent']/df_dnn['dnn_fired_frames_percent']
+        # jitl_dnn_percent = jitl_dnn_percent.clip(upper=1.0)
+        # ax1.plot(df_jitl['jitl_event_recall'], jitl_dnn_percent, 'rs')
+        # ax1.plot(df_jitl['jitl_event_recall'], jitl_dnn_percent, 'r-')
+
+        if random_drop:
+            df1 = df[['random_drop_event_recall', 'random_drop_fired_frames']]
+            df1 = df1.groupby(['random_drop_event_recall']).aggregate(min)  # crunch duplicated recall values
+            print("Random drop result:")
+            print(df1)
+            df1['random_drop_event_recall'] = df1.index
+            df1 = df1.sort_values(by=['random_drop_event_recall'])
+            ax1.plot(df1['random_drop_event_recall'], df1['random_drop_fired_frames'] + 1, 'go-', label='Random Drop')
+
+        # ax1.set_ylim(0.0, 1.05)
+        # ax1.set_xlim(0.0, 1.05)
+        # ax1.set_xticks(np.arange(0, 1.05, 0.2))
+        # ax1.set_yticks(np.arange(0, 1.05, 0.2))
+        # ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 
     # plt.legend(loc='lower right', **LEGEND_FONTS)
     # ax1.get_xaxis().set_major_locator(MaxNLocator(4))
