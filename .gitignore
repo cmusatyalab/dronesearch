@@ -9,6 +9,7 @@ pretrained_models
 pyenv
 redis
 *.mp4
+*.pkl
 ssd_*
 faster_rcnn_*
 tfhub_cache
