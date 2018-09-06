@@ -10,8 +10,17 @@ sys.path.insert(0, '../../scripts')
 import plot_util
 import result_analysis
 import annotation_stats
-import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use("pgf")
+pgf_with_rc_fonts = {
+    "font.family": "serif",
+    "font.serif": [],  # use latex default serif font
+    "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
+    "font.size": 45
+}
+mpl.rcParams.update(pgf_with_rc_fonts)
 
+import matplotlib.pyplot as plt
 use_cache = bool(int(sys.argv[1]))
 experiment_name = 'random_select_and_filter'
 cache_file_name = 'cache_{}.pkl'.format(experiment_name)
