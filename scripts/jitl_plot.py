@@ -25,6 +25,8 @@ from result_analysis import _clamp_bbox, _get_tile_coords_from_bbox
 
 from matplotlib import pyplot as plt
 
+# invoke with 
+# python jitl_plot.py frames-vs-event-recall None 'okutama' ../experiments/jitl_added_0_to_threshold/okutama/jitl_result.pkl --random-drop False --savefig ../experiments/jitl_added_0_to_threshold/okutama/fig-jitl-okutama-eventrecall-step.pdf
 def frames_vs_event_recall(base_dir,
                            dataset,
                            jitl_result_file,
@@ -142,11 +144,12 @@ def frames_vs_event_recall(base_dir,
         ax1.yaxis.set_major_locator(MaxNLocator(4))
         ax1.xaxis.set_major_locator(MaxNLocator(4))
 
+        # plot legend
         # import matplotlib.patches as mpatches
         # fig = plt.figure(figsize=(5, 2))
         # labels = ['EarlyDiscard', 'JITL']
         # patches = [
-        #     mpatches.Patch(color=color, label=label)
+        #     mpatches.Patch(color=color, label=label, alpha=0.5)
         #     for label, color in zip(labels, [dnn_color[int(top_num/2)], jitl_color[int(top_num/2)]])]
         # fig.legend(patches, labels, loc='center', ncol=2)
         # fig.savefig(
