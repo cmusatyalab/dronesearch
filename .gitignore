@@ -11,7 +11,6 @@ redis
 *.mp4
 *.pkl
 *.pyc
-*.npy
 ssd_*
 faster_rcnn_*
 tfhub_cache
