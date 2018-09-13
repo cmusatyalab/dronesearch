@@ -10,8 +10,17 @@ sys.path.insert(0, '../../scripts')
 import plot_util
 import result_analysis
 import annotation_stats
-import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use("pgf")
+pgf_with_rc_fonts = {
+    "font.family": "serif",
+    "font.serif": [],  # use latex default serif font
+    "font.sans-serif": ["DejaVu Sans"],  # use a specific sans-serif font
+    "font.size": 30
+}
+mpl.rcParams.update(pgf_with_rc_fonts)
 
+import matplotlib.pyplot as plt
 use_cache = bool(int(sys.argv[1]))
 experiment_name = 'random_select'
 
@@ -62,6 +71,8 @@ def _plot_bar_graph_interval_to_event_recall(dataset_stats):
     fig = plt.figure(figsize=(10, 5))
     ax = fig.add_subplot(1, 1, 1)
     rects = []
+
+    patterns = ('-', 'x', '.', "\\", '*', 'o', 'O', '.')
     for dataset_idx, dataset_name in enumerate(datasets.keys()):
         print('plotting {}'.format(dataset_name))
         event_recalls = []
@@ -71,19 +82,19 @@ def _plot_bar_graph_interval_to_event_recall(dataset_stats):
                 continue
             event_recalls.append(event_recall)
         rect = ax.bar(
-            ind + width * dataset_idx, event_recalls, width, color=next(color))
+            ind + width * dataset_idx, event_recalls, width, color=next(color), edgecolor='black', hatch=patterns[dataset_idx])
         rects.append(rect)
     ax.legend(
         rects,
         datasets.values(),
         loc='upper center',
         ncol=4,
-        bbox_to_anchor=(0.5, 1.25))
+        bbox_to_anchor=(0.5, 1.25), fontsize='small')
     ax.set_xlabel('Sample Interval')
     ax.set_ylabel('Event Recall')
     ax.set_xticks(ind + width * float(len(datasets)) / 2.0)
     ax.set_xticklabels(sorted(dataset_stats['elephant'].keys()))
-    plt.savefig('fig-random-select-interval-recall.pdf', bbox_inches='tight')
+    plt.savefig('fig-random-select-interval-recall-hatch.pdf', bbox_inches='tight')
 
 
 def _plot_line_graph_event_recall_to_bw(dataset_stats):
