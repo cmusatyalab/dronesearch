@@ -131,7 +131,7 @@ def frames_vs_event_recall(base_dir,
         ax1.set_xlim(min(earlydiscard_event_recalls[1], jitl_event_recalls[1]) - 0.1, 1)
         ax1.set_ylim(0, max(earlydiscard_frame_fraction[-1], jitl_frame_fraction[-1]) * 1.5)
 
-        ax1.fill_between(earlydiscard_event_recalls, [1.0]*len(earlydiscard_event_recalls), earlydiscard_frame_fraction, step='pre', color=dnn_color[int(top_num/2)], alpha=0.5)
+        ax1.fill_between(earlydiscard_event_recalls, [1.0]*len(earlydiscard_event_recalls), earlydiscard_frame_fraction, step='pre', color=dnn_color[int(top_num/2)], alpha=0.5, edgecolor='black', hatch='-')
         from scipy.interpolate import interp1d
         earlydiscard_interpol = interp1d(earlydiscard_event_recalls, earlydiscard_frame_fraction, kind='previous')
         if (earlydiscard_event_recalls[-1] > jitl_event_recalls[-1]):
@@ -139,7 +139,7 @@ def frames_vs_event_recall(base_dir,
         else:
             jitl_interpol = interp1d(jitl_event_recalls, jitl_frame_fraction, kind='previous')
         region_x = sorted(earlydiscard_event_recalls + jitl_event_recalls)
-        ax1.fill_between(region_x, earlydiscard_interpol(region_x), jitl_interpol(region_x), step='pre', color=jitl_color[int(top_num/2)], alpha=0.5)
+        ax1.fill_between(region_x, earlydiscard_interpol(region_x), jitl_interpol(region_x), step='pre', color=jitl_color[int(top_num/2)], alpha=0.5, edgecolor='black', hatch='x')
         from matplotlib.ticker import MaxNLocator
         ax1.yaxis.set_major_locator(MaxNLocator(4))
         ax1.xaxis.set_major_locator(MaxNLocator(4))
@@ -149,8 +149,8 @@ def frames_vs_event_recall(base_dir,
         # fig = plt.figure(figsize=(5, 2))
         # labels = ['EarlyDiscard', 'JITL']
         # patches = [
-        #     mpatches.Patch(color=color, label=label, alpha=0.5)
-        #     for label, color in zip(labels, [dnn_color[int(top_num/2)], jitl_color[int(top_num/2)]])]
+        #     mpatches.Patch(color=color, label=label, alpha=0.5, hatch=hatch)
+        #     for label, color, hatch in zip(labels, [dnn_color[int(top_num/2)], jitl_color[int(top_num/2)]], ['-', 'x'])]
         # fig.legend(patches, labels, loc='center', ncol=2)
         # fig.savefig(
         #     'fig-jitl-legend.pdf', bbox_inches='tight')
