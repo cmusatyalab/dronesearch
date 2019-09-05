@@ -1,21 +1,17 @@
-#!/usr/bin/env python
 """Filters for on-board processing
 """
 
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
 import abc
 import math
-import pickle as pickle
+import pickle
 import time
 
-import numpy as np
 import cv2
-import tensorflow as tf
+import numpy as np
 from logzero import logger
 
-import utils
+import tensorflow as tf
+from dronesearch import utils
 
 
 class DroneFilter(object, metaclass=abc.ABCMeta):
@@ -93,41 +89,32 @@ class TFMobilenetFilter(DroneFilter):
         output_name = "import/" + self.output_layer
         self._input_operation = self._graph.get_operation_by_name(input_name)
         self._output_operation = self._graph.get_operation_by_name(output_name)
-        
+
         self._sess = tf.Session(graph=self._graph)
 
     @utils.timeit
     def process(self, image):
         tiles = [image]
-        
         st = time.time()
-        
         normalized_tiles = self._sess.run(self._preprocess_output, {
             self._preprocess_input: tiles
         })
-        
         logger.debug('preprocess takes {}ms'.format((time.time() - st) * 1000))
-        
         st = time.time()
-
         predictions = self._sess.run(
             self._output_operation.outputs[0], {
                 self._input_operation.outputs[0]: normalized_tiles
             })
-        
         logger.debug('predictions takes {}ms'.format(
             (time.time() - st) * 1000))
-        
         st = time.time()
-
-        logger.debug('score for class {0} is: {1}'.format(self._class, 
-            predictions[0][self._class]))
-        
+        logger.debug('score for class {0} is: {1}'.format(self._class,
+                                                          predictions[0][self._class]))
         result = None
 
         if (predictions[0][self._class] > 0.6):
             result = ImageFilterOutput(image)
-        
+
         return result
 
     def close(self):

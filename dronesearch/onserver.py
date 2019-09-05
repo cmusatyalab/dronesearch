@@ -1,23 +1,16 @@
 #!/usr/bin/env python
-"""On board processing.
-
-Run filters on board and send them to backend
+"""On cloudlet processing.
 """
 
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
-import os
 import configparser
+import os
 
+import cv2
 import fire
 from logzero import logger
 
-import dronefilter
-import networkservice
+from dronesearch import dronefilter, networkservice
 
-""" For testing purposes only """
-import cv2
 
 def _start_event_loop(network_service):
     """Start pipeline of receiving results from onboard
@@ -33,14 +26,14 @@ def _start_event_loop(network_service):
     """
     network_service.open()
     filter_output = dronefilter.ImageFilterOutput()
-    
+
     while True:
         try:
             filter_output_serialized = network_service.socket.recv()
             filter_output.frombytes(filter_output_serialized)
-            
+
             logger.info('received image')
-            
+
             cv2.imshow('Received Image Feed', filter_output.image)
             cv2.waitKey(1)
         except KeyboardInterrupt:
