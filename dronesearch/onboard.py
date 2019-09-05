@@ -13,12 +13,6 @@ from logzero import logger
 from dronesearch import dronefilter, inputsource, networkservice
 
 
-def _get_config_parser(config_file):
-    parser = configparser.ConfigParser()
-    parser.read(config_file)
-    return parser
-
-
 def _get_input_source(input_source):
     input_source_type = type(input_source)
     if input_source_type != int and input_source_type != str:
@@ -26,6 +20,12 @@ def _get_input_source(input_source):
             'Cannot create input source from {}'.format(input_source))
 
     return inputsource.OpenCVInputSource(input_source)
+
+
+def _get_config_parser(config_file):
+    parser = configparser.ConfigParser()
+    parser.read(config_file)
+    return parser
 
 
 def _validate_filter_config(parser):
@@ -73,7 +73,7 @@ def _get_filters_from_config_file(filter_config_file):
     return filters[current_filter_name], filters
 
 
-def _start_event_loop(source, current_filter, filters, network_service):
+def _start_event_loop(source, current_filter, filters, network_service, debug=False):
     """Start pipeline of sending filtered images to backend
 
     Args:
@@ -92,21 +92,20 @@ def _start_event_loop(source, current_filter, filters, network_service):
     while True:
         try:
             im = source.read()
-
-            cv2.imshow('Drone Feed', im)
-            cv2.waitKey(1)
+            if debug:
+                cv2.imshow('Drone Feed', im)
+                cv2.waitKey(1)
 
             if im is None:
                 logger.info('No image retrieved. exiting.')
                 break
             else:
-                # TODO: Add in ZMQ image transfer here
                 filter_output = current_filter.process(im)
                 if filter_output is not None:
-                    logger.info('Detection made, image sent')
+                    logger.debug('Passed to Cloudlet')
                     network_service.send(filter_output.tobytes())
                 else:
-                    logger.info('No detection made')
+                    logger.debug('Filtered Out')
         except KeyboardInterrupt:
             break
 
@@ -119,12 +118,13 @@ def start_onboard_processing(input_source,
                              filter_config_file,
                              network_service='zmq_pair',
                              server_host='localhost',
-                             server_port=9000):
+                             server_port=9000,
+                             debug=False):
     source = _get_input_source(input_source)
     current_filter, filters = _get_filters_from_config_file(filter_config_file)
     network_service = networkservice.NetworkService.factory(
         type=network_service, host=server_host, port=server_port)
-    _start_event_loop(source, current_filter, filters, network_service)
+    _start_event_loop(source, current_filter, filters, network_service, debug)
 
 
 if __name__ == "__main__":
