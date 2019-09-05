@@ -7,7 +7,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import abc
 import math
-import cPickle as pickle
+import pickle as pickle
 import time
 
 import numpy as np
@@ -18,9 +18,7 @@ from logzero import logger
 import utils
 
 
-class DroneFilter(object):
-    __metaclass__ = abc.ABCMeta
-
+class DroneFilter(object, metaclass=abc.ABCMeta):
     @classmethod
     def factory(cls, **kwargs):
         filter_type = kwargs.pop('type')
@@ -139,9 +137,7 @@ class TFMobilenetFilter(DroneFilter):
         raise NotImplementedError()
 
 
-class FilterOutput(object):
-    __metaclass__ = abc.ABCMeta
-
+class FilterOutput(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def tobytes():
         pass

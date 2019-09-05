@@ -11,9 +11,7 @@ import zmq
 from logzero import logger
 
 
-class NetworkService(object):
-    __metaclass__ = abc.ABCMeta
-
+class NetworkService(object, metaclass=abc.ABCMeta):
     @classmethod
     def factory(cls, **kwargs):
         filter_type = kwargs.pop('type')

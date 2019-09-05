@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Filters for on-board processing
+"""Input Sources for Retrieving Video Frames.
 """
 
 from __future__ import (absolute_import, division, print_function,
@@ -11,9 +11,7 @@ import cv2
 from logzero import logger
 
 
-class InputSource(object):
-    __metaclass__ = abc.ABCMeta
-
+class InputSource(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def read():
         pass
@@ -25,15 +23,14 @@ class InputSource(object):
 
 class OpenCVInputSource(InputSource):
     def __init__(self, source):
-        """Video Input Source using OpenCV. Return RGB image
+        """Video Input Source using OpenCV. Return RGB image.
 
         """
         self.source = source
 
     def open(self):
         self._cap = cv2.VideoCapture(self.source)
-        # Converts from RGB capture
-        self._cap.set(16, True)
+        self._cap.set(cv2.CAP_PROP_CONVERT_RGB, True)
 
     def read(self):
         ret, frame = self._cap.read()

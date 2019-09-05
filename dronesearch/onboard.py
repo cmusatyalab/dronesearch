@@ -1,27 +1,20 @@
-#/usr/bin/env python
-"""On board processing.
+# /usr/bin/env python
+"""On drone processing main module.
 
-Run filters on board and send them to backend
+Start to run filters on drones and send interesting images to cloudlet for processing.
 """
-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
+import configparser
 import os
-import ConfigParser
 
+import cv2
 import fire
 from logzero import logger
 
-import dronefilter
-import inputsource
-import networkservice
-
-import cv2
+from dronesearch import dronefilter, inputsource, networkservice
 
 
 def _get_config_parser(config_file):
-    parser = ConfigParser.SafeConfigParser()
+    parser = configparser.ConfigParser()
     parser.read(config_file)
     return parser
 
@@ -66,7 +59,7 @@ def _parse_filter_config(filter_config_file):
 
 def _get_filters_from_config(filter_configs):
     filters = {}
-    for filter_name, filter_config in filter_configs.items():
+    for filter_name, filter_config in list(filter_configs.items()):
         filters[filter_name] = dronefilter.DroneFilter.factory(
             name=filter_name, **filter_config)
     return filters
@@ -95,7 +88,7 @@ def _start_event_loop(source, current_filter, filters, network_service):
     source.open()
     current_filter.open()
     network_service.open()
-    
+
     while True:
         try:
             im = source.read()
@@ -116,7 +109,7 @@ def _start_event_loop(source, current_filter, filters, network_service):
                     logger.info('No detection made')
         except KeyboardInterrupt:
             break
-    
+
     source.close()
     current_filter.close()
     network_service.close()
