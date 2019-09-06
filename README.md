@@ -1,4 +1,7 @@
-# Overview
+# Overview  [![PyPI version][pypi-image]][pypi]
+
+[pypi-image]: https://badge.fury.io/py/dronesearch.svg
+[pypi]: https://pypi.org/project/dronesearch/
 
 This repo contains a python package [dronesearch](dronesearch) for running live
 video analytics on drone video feeds leveraging edge servers. It also contains
@@ -35,7 +38,10 @@ Only video frames that are classified as *computer monitors* will be sent to an
 edge server for further analysis.
 
 To run the demo, first clone this directory. Then, issue the following commands
-at the root dir of this repo.
+at the root dir of this repo. There will be a window named *Drone Feed* that
+pops up showing you the feed from the input source. Once the feed captures a
+computer monitor, a second window named *Received Image Feed* will pop up
+showing the received frames at the edge server.
 
 ```bash
 # on drone or your drone emulation platform, by default connecting to tcp://localhost:9000

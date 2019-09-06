@@ -14,11 +14,12 @@ install_requires = [
     'fire',
     'tensorflow',
     'pyzmq',
+    'opencv-python'
 ]
 
 setuptools.setup(
     name='dronesearch',
-    version='1.0.0',
+    version='1.0.0.1',
     author='Junjue Wang',
     author_email='junjuew@cs.cmu.edu',
     description='A computer vision pipeline for live video search on drone video feeds leveraging edge servers.',
