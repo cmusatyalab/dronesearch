@@ -14,3 +14,5 @@ redis
 ssd_*
 faster_rcnn_*
 tfhub_cache
+
+old-exp
