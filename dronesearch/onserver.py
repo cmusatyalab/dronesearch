@@ -32,8 +32,7 @@ def _start_event_loop(network_service):
             filter_output_serialized = network_service.socket.recv()
             filter_output.frombytes(filter_output_serialized)
 
-            logger.info('received image')
-
+            logger.debug('received image')
             cv2.imshow('Received Image Feed', filter_output.image)
             cv2.waitKey(1)
         except KeyboardInterrupt:

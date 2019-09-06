@@ -119,7 +119,7 @@ def start_onboard_processing(input_source,
                              network_service='zmq_pair',
                              server_host='localhost',
                              server_port=9000,
-                             debug=False):
+                             debug=True):
     source = _get_input_source(input_source)
     current_filter, filters = _get_filters_from_config_file(filter_config_file)
     network_service = networkservice.NetworkService.factory(

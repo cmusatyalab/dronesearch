@@ -5,7 +5,9 @@ channels:
 dependencies:
   - opencv=4.1.1=py37h0cc45ee_2
   - python=3.7.3=h33d41f4_1
+  - zeromq=4.3.1=he6710b0_3
   - pip:
-      - logzero==1.5.0
+      - logzero
       - fire
       - tensorflow
+      - pyzmq
