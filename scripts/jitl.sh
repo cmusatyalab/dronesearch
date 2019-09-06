@@ -6,7 +6,10 @@
 
 set -e
 
+# BASE_DIR should be the directory which has the datasets dirs (okutama,
+# stanford, raft, elephant)
 BASE_DIR=/home/junjuew/mobisys18/scripts
+# MY_BASE_DIR is the work directory this scripts stores intermediate and final results
 MY_BASE_DIR=/home/junjuew/work/drone-scalable-search/experiments/jitl
 DATASET=${DATASET:-raft}
 DATASETS=(
