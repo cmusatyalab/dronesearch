@@ -1,9 +1,9 @@
 # Overview
 
 This repo contains a python package [dronesearch](dronesearch) for running live
-video analytics on drones leveraging edge servers. It also contains our
-experiment code for SEC'18 paper *[Bandwidth-efficient Live Video Analytics for
-Drones via Edge Computing](https://ieeexplore.ieee.org/document/8567664)*.
+video analytics on drone video feeds leveraging edge servers. It also contains
+our experiment code for SEC'18 paper *[Bandwidth-efficient Live Video Analytics
+for Drones via Edge Computing](https://ieeexplore.ieee.org/document/8567664)*.
 
 ## dronesearch Package
 
@@ -30,10 +30,23 @@ pip install dronesearch
 
 ### Demo
 
+We provide a demo that considers *computer monitors* as objects of interests.
+Only video frames that are classified as *computer monitors* will be sent to an
+edge server for further analysis.
+
+To run the demo, first clone this directory. Then, issue the following commands
+at the root dir of this repo.
+
 ```bash
-# on drone
-python -m dronesearch.onboard --input-source 0 --filter-config-file dronesearch/cfg/filter_config.ini
+# on drone or your drone emulation platform, by default connecting to tcp://localhost:9000
+# --input-source: the uri for OpenCV's VideoCapture(). It should be a number for cameras or a file path for videos.
+# --filter-config-file: a file path whose content specifies filters to run on the drone.
+#                       This demo uses Tensorflow's MobileNet.
+# --server-host, and --server-port specifies the edge server.
+python -m dronesearch.onboard --input-source 0 --filter-config-file data/cfg/filter_config.ini
+
 # on edge server
+# --server-port specifies the listening port.
 python -m dronesearch.onserver
 ```
 
