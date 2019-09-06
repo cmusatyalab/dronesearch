@@ -1,4 +1,4 @@
-#!/usr/bin/env python"""Preprocess scripts for Faster-RCNN based object detections experiments.
+#!/usr/bin/env python
 
 # Drone Search
 #
@@ -19,11 +19,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+"""Preprocess scripts for Faster-RCNN based object detections experiments.
 This preprocessing script customizes input data format according to the
 convention used by TPOD's py-faster-rcnn CNN
 module. (https://github.com/junjuew/py-faster-rcnn)
-
 """
 
 from __future__ import (absolute_import, division,

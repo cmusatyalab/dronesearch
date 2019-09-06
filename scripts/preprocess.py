@@ -1,4 +1,4 @@
-#!/usr/bin/env pythonfrom __future__ import (absolute_import, division, print_function,
+#!/usr/bin/env python
 
 # Drone Search
 #
@@ -19,6 +19,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Preprocessing related functions for DNN training and inference.
+"""
+
+from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import cPickle as pickle
