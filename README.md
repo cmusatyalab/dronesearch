@@ -39,7 +39,8 @@ at the root dir of this repo.
 
 ```bash
 # on drone or your drone emulation platform, by default connecting to tcp://localhost:9000
-# --input-source: the uri for OpenCV's VideoCapture(). It should be a number for cameras or a file path for videos.
+# --input-source: the uri for OpenCV's VideoCapture(). 
+#                 It should be a number for cameras or a file path for videos.
 # --filter-config-file: a file path whose content specifies filters to run on the drone.
 #                       This demo uses Tensorflow's MobileNet.
 # --server-host, and --server-port specifies the edge server.
