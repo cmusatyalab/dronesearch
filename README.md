@@ -1,12 +1,21 @@
-# Overview  [![PyPI version][pypi-image]][pypi]
+# Overview [![PyPI version][pypi-image]][pypi]
 
 [pypi-image]: https://badge.fury.io/py/dronesearch.svg
 [pypi]: https://pypi.org/project/dronesearch/
 
 This repo contains a python package [dronesearch](dronesearch) for running live
 video analytics on drone video feeds leveraging edge servers. It also contains
-our experiment code for SEC'18 paper *[Bandwidth-efficient Live Video Analytics
-for Drones via Edge Computing](https://ieeexplore.ieee.org/document/8567664)*.
+our experiment code for SEC'18 paper _[Bandwidth-efficient Live Video Analytics
+for Drones via Edge Computing](https://ieeexplore.ieee.org/document/8567664)_.
+
+## What's in here?
+
+- [dronesearch](dronesearch): dronesearch python package.
+- [data](data): data files for dronesearch demo and tests.
+- [tests](tests): tests for dronesearch package.
+- [experiments](experiments): results and ploting scripts for SEC'18 experiments (Note data files are stored outside of Github. See [experiment-README](experiment-README.md)).
+- [scripts](scripts): code for creating SEC'18 experiment results.
+- [requirements](requirements): conda and pip requirements file for experiments.
 
 ## dronesearch Package
 
@@ -33,19 +42,19 @@ pip install dronesearch
 
 ### Demo
 
-We provide a demo that considers *computer monitors* as objects of interests.
-Only video frames that are classified as *computer monitors* will be sent to an
+We provide a demo that considers _computer monitors_ as objects of interests.
+Only video frames that are classified as _computer monitors_ will be sent to an
 edge server for further analysis.
 
 To run the demo, first clone this directory. Then, issue the following commands
-at the root dir of this repo. There will be a window named *Drone Feed* that
+at the root dir of this repo. There will be a window named _Drone Feed_ that
 pops up showing you the feed from the input source. Once the feed captures a
-computer monitor, a second window named *Received Image Feed* will pop up
+computer monitor, a second window named _Received Image Feed_ will pop up
 showing the received frames at the edge server.
 
 ```bash
 # on drone or your drone emulation platform, by default connecting to tcp://localhost:9000
-# --input-source: the uri for OpenCV's VideoCapture(). 
+# --input-source: the uri for OpenCV's VideoCapture().
 #                 It should be a number for cameras or a file path for videos.
 # --filter-config-file: a file path whose content specifies filters to run on the drone.
 #                       This demo uses Tensorflow's MobileNet.
