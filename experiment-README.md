@@ -10,7 +10,7 @@ Experiment code and data are structured similarly to the [paper](https://ieeexpl
 git clone --recurse-submodules https://github.com/cmusatyalab/dronesearch
 ```
 
-2. Download and extract [_processed_dataset.tar.gz_](https://storage.cmusatyalab.org/drone2018/processed_dataset.tar.gz)(md5: 2b674b365c9f81ab6be338c7c4a89ad5), [_experiments.tar.gz_](https://storage.cmusatyalab.org/drone2018/experiments.tar.gz)(md5: 24094df83336785ecae09fa7a1cfd630), and [_pretrained_models_](https://storage.cmusatyalab.org/drone2018/pretrained_models.tar.gz)(md5: 70e8be707a79b1c7d6c4ccb29e51625d).
+2. Download and extract [_processed_dataset.tar.gz_](https://storage.cmusatyalab.org/drone2018/processed_dataset.tar.gz) (md5: 2b674b365c9f81ab6be338c7c4a89ad5), [_experiments.tar.gz_](https://storage.cmusatyalab.org/drone2018/experiments.tar.gz) (md5: 24094df83336785ecae09fa7a1cfd630), and [_pretrained_models_](https://storage.cmusatyalab.org/drone2018/pretrained_models.tar.gz) (md5: 70e8be707a79b1c7d6c4ccb29e51625d).
 
 ## What's in here?
 
