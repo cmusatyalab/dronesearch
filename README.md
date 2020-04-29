@@ -13,7 +13,7 @@ for Drones via Edge Computing](https://ieeexplore.ieee.org/document/8567664)_.
 We created two custom datasets for benchmarking object detection in drone videos in this paper. 
 We labeled 11 YouTube videos each for rafts and elephants. 
 You can access the datasets, consisting of videos and labels [here for raft](http://storage.cmusatyalab.org/drone2018/raft.zip)
-and [here for elephant](http://storage.cmusatyalab.org/drone2018/elephant.zip)
+and [here for elephant](http://storage.cmusatyalab.org/drone2018/elephant.zip).
 
 ## What's in here?
 
