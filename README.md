@@ -8,6 +8,13 @@ video analytics on drone video feeds leveraging edge servers. It also contains
 our experiment code for SEC'18 paper _[Bandwidth-efficient Live Video Analytics
 for Drones via Edge Computing](https://ieeexplore.ieee.org/document/8567664)_.
 
+## Datasets
+
+We created two custom datasets for benchmarking object detection in drone videos in this paper. 
+We labeled 11 YouTube videos each for rafts and elephants. 
+You can access the datasets, consisting of videos and labels [here for raft](http://storage.cmusatyalab.org/drone2018/raft.zip)
+and [here for elephant](http://storage.cmusatyalab.org/drone2018/elephant.zip)
+
 ## What's in here?
 
 - [dronesearch](dronesearch): dronesearch python package.
