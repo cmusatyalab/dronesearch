@@ -26,7 +26,7 @@ mkdocs==0.17.1
 mock==2.0.0
 numpy==1.13.3
 olefile==0.44
-opencv-python==3.4.2.17
+opencv-python==3.4.7.28
 pandas==0.21.0
 pathlib2==2.3.0
 pbr==3.1.1
