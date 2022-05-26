@@ -57,7 +57,7 @@ Sphinx==1.6.5
 sphinxcontrib-napoleon==0.6.1
 sphinxcontrib-websupport==1.0.1
 subprocess32==3.2.7
-tensorflow-gpu==1.15.2
+tensorflow-gpu==2.7.2
 tensorflow-tensorboard==0.4.0rc3
 tornado==4.5.2
 traitlets==4.3.2
