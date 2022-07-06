@@ -14,7 +14,7 @@ enum34==1.1.6
 fire==0.1.2
 funcsigs==1.0.2
 futures==3.1.1
-html5lib==0.9999999
+html5lib==0.999999999
 imagesize==0.7.1
 ipython==5.5.0
 ipython-genutils==0.2.0
