@@ -5,7 +5,7 @@ backports.functools-lru-cache==1.4
 backports.shutil-get-terminal-size==1.0.0
 backports.weakref==1.0.post1
 bleach==3.1.4
-certifi==2018.8.24
+certifi==2022.12.7
 click==6.7
 cycler==0.10.0
 decorator==4.1.2
